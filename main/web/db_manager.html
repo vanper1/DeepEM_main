@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据库管理 - DeepEM</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+  <link rel="stylesheet" href="/static/styles/db_manager.css?v=merged-20260604">
+</head>
+<body class="db-manager-body">
+  <header class="topbar db-manager-topbar">
+    <div class="brand">数据库管理</div>
+    <div class="actions">
+      <a class="btn btn-detail" href="/chat">返回对话</a>
+      <a class="btn btn-detail" href="/home">返回主页面</a>
+    </div>
+  </header>
+
+  <main class="db-manager-shell">
+    <aside class="db-manager-sidebar">
+      <div class="db-manager-sidebar-header">
+        <h2>数据库列表</h2>
+        <div id="dbManagerStatus" class="muted">正在加载...</div>
+      </div>
+      <div id="dbManagerList" class="db-manager-list">
+        <div class="empty-state">暂无数据库</div>
+      </div>
+    </aside>
+
+    <section class="db-manager-panel">
+      <div id="dbManagerPanelHeader" class="db-manager-panel-header">
+        <div class="db-manager-panel-placeholder">请从左侧选择一个表查看数据。</div>
+      </div>
+      <div id="dbManagerDataWrap" class="db-manager-data-wrap">
+        <div id="dbManagerTableInfo" class="db-manager-table-info hidden"></div>
+        <div id="dbManagerTableContainer" class="db-manager-table-container"></div>
+        <div id="dbManagerPagination" class="db-manager-pagination hidden"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/db_manager.js?v=merged-20260604"></script>
+</body>
+</html>

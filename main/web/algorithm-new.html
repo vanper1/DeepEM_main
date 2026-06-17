@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 算法管理</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 算法管理</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/algorithms">返回</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-form-grid">
+  <section class="deem-panel strong">
+    <div class="deem-panel-title"><h2>新增算法</h2><a class="deem-btn ghost" href="/algorithms">返回</a></div>
+    <div class="deem-form-section"><label class="deem-field"><span>算法名称：</span><input class="deem-input" value="频谱异常智能检测算法"></label><label class="deem-field"><span>适用场景：</span><input class="deem-input" value="办公区、会议室、实验室"></label><label class="deem-field"><span>操作员：</span><input class="deem-input" value="operator"></label><div class="deem-form-actions"><button id="createAlgorithmBtn" class="deem-btn primary" type="button">新增算法</button></div></div>
+  </section>
+  <section class="deem-panel"><div class="deem-panel-title"><h2>输入参数 / 输出参数</h2></div><div class="deem-workspace single"><div class="deem-report-box"><strong>输入参数：</strong><br>频点范围、采样率、切片时长、阈值参数、场所基线。<br><br><strong>输出参数：</strong><br>异常类型、置信度、关联证据、复核建议。</div></div></section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=merged-20260604"></script>
+</body>
+</html>

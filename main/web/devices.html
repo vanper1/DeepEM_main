@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 设备管理</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 设备管理</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+  </header>
+  <main class="deem-main">
+
+<section id="devicePage">
+  <div class="deem-tabs"><a class="deem-tab active" href="/devices">设备管理</a><a class="deem-tab" href="/devices/data">采集数据</a><a class="deem-tab" href="/home">返回主页面</a></div>
+  <section class="device-grid">
+    <section class="deem-panel">
+      <div class="deem-panel-title"><h2>设备列表</h2><button id="scanDeviceBtn" class="deem-btn primary" type="button">扫描 USRP</button></div>
+      <div class="deem-table-wrap" style="min-height:0"><div class="device-status-row"><strong>USRP-01</strong><span class="status-pill ok">在线 / 空闲</span></div><div class="device-status-row"><strong>USRP-02</strong><span class="status-pill warn">在线 / 采集中</span></div><div class="device-status-row"><strong>USRP-03</strong><span class="status-pill stop">离线</span></div></div>
+      <p id="deviceScanResult" class="muted">点击扫描 USRP，扫描实际外设设备。</p>
+    </section>
+    <section class="deem-panel strong">
+      <div class="deem-panel-title"><h2>设备详情</h2></div>
+      <div class="deem-kv"><div><span>设备 ID</span><strong>USRP-01</strong></div><div><span>IP</span><strong>192.168.10.21</strong></div><div><span>任务 ID</span><strong>TASK-20260602-006</strong></div><div><span>频点范围</span><strong>70MHz - 6GHz</strong></div><div><span>采样率范围</span><strong>1MS/s - 56MS/s</strong></div><div><span>状态</span><strong>在线</strong></div></div>
+    </section>
+    <section class="deem-panel">
+      <div class="deem-panel-title"><h2>参数配置与采集控制</h2></div>
+      <div class="deem-form-section"><input class="deem-input" value="采集频点：2.4GHz"><input class="deem-input" value="采样率：20MS/s"><input class="deem-input" value="带宽：40MHz"><input class="deem-input" value="增益：30dB"><input class="deem-input" value="通道：CH-1 / 天线口：RX2"><input class="deem-input" value="切片时长：2s / 总时长：120s"></div>
+      <div class="deem-form-actions"><button id="configDeviceBtn" class="deem-btn">下发配置</button><button id="startCaptureBtn" class="deem-btn ok">启动采集</button><button id="stopDeviceBtn" class="deem-btn danger">停止采集</button></div>
+      <p id="deviceActionResult" class="muted">最近任务状态与切片数量将在这里展示。</p>
+    </section>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=merged-20260604"></script>
+</body>
+</html>

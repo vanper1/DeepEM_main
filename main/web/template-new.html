@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 检测模板管理</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 检测模板管理</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/templates">返回</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-form-grid">
+  <section class="deem-panel strong">
+    <div class="deem-panel-title"><h2>新建检测模板</h2><a class="deem-btn ghost" href="/templates">返回</a></div>
+    <div class="deem-form-section">
+      <label class="deem-field"><span>模板名称：</span><input class="deem-input" value="重点区域频谱检测模板"></label>
+      <label class="deem-field"><span>适用场景：</span><input class="deem-input" value="会议室、机房、实验室"></label>
+      <label class="deem-field"><span>操作员：</span><input class="deem-input" value="operator"></label>
+      <label class="deem-field"><span>模板内容：</span><textarea class="deem-textarea">资源校验 → 参数配置 → 采集控制 → 智能体研判 → 报告归档</textarea></label>
+      <div class="deem-form-actions"><button id="createTemplateBtn" class="deem-btn primary" type="button">新建模板</button></div>
+    </div>
+  </section>
+  <section class="deem-panel"><div class="deem-panel-title"><h2>模板内容预览</h2></div><div class="deem-preview-box">这里展示新建检测模板的流程说明、适用场景和后续可接入的参数配置项。</div></section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=merged-20260604"></script>
+</body>
+</html>

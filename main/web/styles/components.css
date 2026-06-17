@@ -1,0 +1,260 @@
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 18px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: #0a1425;
+}
+
+.timeline-item.warning {
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
+.timeline-item.normal {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.timeline-item.info {
+  color: var(--blue-strong);
+  border-color: var(--blue-strong);
+}
+
+.timeline-item.clickable {
+  cursor: pointer;
+}
+
+.timeline-item.open {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(140, 172, 239, 0.08);
+}
+
+.timeline-meta {
+  color: var(--text-faint);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.timeline-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.timeline-item .title {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.expand-hint {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 12px;
+}
+
+.timeline-evidence,
+.timeline-details {
+  margin-top: 10px;
+}
+
+.timeline-details summary {
+  cursor: pointer;
+  color: var(--text-soft);
+}
+
+.section-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.detail-line,
+.evidence-line,
+.modal-section {
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  line-height: 1.55;
+}
+
+.detail-line strong {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.detail-empty,
+.empty-state {
+  color: var(--text-soft);
+}
+
+.empty-state {
+  padding: 16px;
+  text-align: center;
+}
+
+.insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.insight-card,
+.history-insight-card {
+  width: 100%;
+  color: var(--text);
+  text-align: left;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insight-top-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.insight-top-row strong {
+  line-height: 1.45;
+}
+
+.insight-basic,
+.insight-result {
+  margin-top: 9px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+.insight-result strong {
+  color: var(--text);
+}
+
+.nested-tip {
+  margin-top: 12px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.tag.warning,
+.tag.investigating {
+  background: rgba(255, 174, 92, 0.12);
+  border-color: rgba(255, 174, 92, 0.22);
+  color: #ffd498;
+}
+
+.tag.pending {
+  background: rgba(91, 140, 255, 0.12);
+  border-color: rgba(91, 140, 255, 0.22);
+  color: #b9ceff;
+}
+
+.tag.closed {
+  background: rgba(42, 214, 108, 0.12);
+  border-color: rgba(42, 214, 108, 0.22);
+  color: #98efb7;
+}
+
+.case-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+}
+
+.case-card {
+  padding: 12px 14px;
+  line-height: 1.6;
+}
+
+.case-card > div + div {
+  margin-top: 4px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+pre {
+  max-height: 260px;
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(6, 16, 30, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: #cfe0ff;
+}
+
+.floating-chat-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 20px;
+  z-index: 30;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #456fe0, #6690ff);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 20px 40px rgba(4, 10, 22, 0.35);
+  font-weight: 600;
+}
+
+.floating-chat {
+  position: fixed;
+  right: 24px;
+  bottom: 74px;
+  width: min(440px, calc(100vw - 32px));
+  height: 560px;
+  background: linear-gradient(180deg, rgba(15, 28, 48, 0.96), rgba(9, 18, 33, 0.98));
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 30;
+  box-shadow: 0 28px 60px rgba(2, 8, 20, 0.42);
+  backdrop-filter: blur(20px);
+}
+
+.floating-chat-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.chat-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;

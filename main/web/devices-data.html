@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 设备管理</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 设备管理</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/devices">返回设备管理</a></div>
+  </header>
+  <main class="deem-main">
+
+<section>
+  <div class="deem-tabs"><a class="deem-tab" href="/devices">设备管理</a><a class="deem-tab active" href="/devices/data">采集数据</a><a class="deem-tab" href="/home">返回主页面</a></div>
+  <section class="deem-workspace single">
+    <div class="deem-panel">
+      <div class="deem-panel-title"><h2>采集数据</h2><button class="deem-btn danger" onclick="alert('已模拟批量清理已结束任务及其采集文件。')">批量清理已结束任务</button></div>
+      <div class="deem-table-wrap"><table class="deem-table"><thead><tr><th>任务ID</th><th>设备ID</th><th>任务状态</th><th>切片数量</th><th>数据总大小</th><th>上传情况</th><th>采集起止时间</th></tr></thead><tbody><tr><td>CAP-001</td><td>USRP-01</td><td><span class="status-pill ok">已结束</span></td><td>128</td><td>2.6GB</td><td>已上传</td><td>09:00 - 09:08</td></tr><tr><td>CAP-002</td><td>USRP-02</td><td><span class="status-pill warn">采集中</span></td><td>46</td><td>0.9GB</td><td>上传中</td><td>10:20 - 进行中</td></tr></tbody></table></div>
+      <div class="deem-report-box"><strong>任务详情</strong><br>展开任务后展示参数配置快照和切片文件列表：文件名、样本数、文件大小、上传状态、错误提示、创建时间、修改时间等。</div>
+    </div>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=merged-20260604"></script>
+</body>
+</html>

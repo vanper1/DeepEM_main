@@ -1,0 +1,44 @@
+@import url("./styles/base.css");
+@import url("./styles/components.css");
+@import url("./styles/layout.css?v=merged-20260604");
+@import url("./styles/modals.css");
+@import url("./styles/responsive.css");
+@import url("./styles/chat.css?v=merged-20260604");
+@import url("./styles/device_mgmt.css?v=merged-20260604");
+@import url("./styles/db_manager.css?v=merged-20260604");
+@import url("./styles/portal.css?v=20260602-commercial1");
+@import url("./styles/commercial-polish.css?v=20260602-commercial1");
+
+/* Merged frontend compatibility overrides: keep the web.zip wide chat layout after commercial polish. */
+.chat-page-body .chat-shell {
+  width: 100vw !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px 24px !important;
+  box-sizing: border-box !important;
+}
+
+.chat-page-body .chat-shell-split {
+  display: grid !important;
+  grid-template-columns: 320px minmax(0, 1fr) !important;
+  gap: 16px !important;
+}
+
+.chat-page-body .chat-page-panel,
+.chat-page-body .chat-main,
+.chat-page-body .chat-timeline-wrap {
+  min-width: 0 !important;
+}
+
+.chat-page-body .model-settings-drawer {
+  position: fixed !important;
+  top: 72px !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+@media (max-width: 1100px) {
+  .chat-page-body .chat-shell-split {
+    grid-template-columns: 1fr !important;
+  }
+}
