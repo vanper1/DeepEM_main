@@ -13,8 +13,8 @@ pip install -e .
 
 # 4) 配置主平台与 USRP 采集服务
 export DEEPEM_LLM_API_KEY="null"
-export DEEPEM_LLM_BASE_URL="http://localhost:8000/v1"
-export DEEPEM_LLM_MODEL="qwen36_35B_A3B"
+export DEEPEM_LLM_BASE_URL="http://localhost:8001/v1"
+export DEEPEM_LLM_MODEL="qwen36_35b_a3b"
 export DEEPEM_USRP_BASE_URL="http://10.112.210.4:8100"
 
 # 5) 启动平台
