@@ -119,6 +119,106 @@
     const span = Math.max(maxValue - minValue, 1e-6);
     return nums.map(value => Math.round(((value - minValue) / span) * 255));
   }
+function formatHzLabel(value) {
+  const hz = Number(value);
+  if (!Number.isFinite(hz)) return '-';
+  const abs = Math.abs(hz);
+  if (abs >= 1e9) return `${(hz / 1e9).toFixed(3)} GHz`;
+  if (abs >= 1e6) return `${(hz / 1e6).toFixed(1)} MHz`;
+  if (abs >= 1e3) return `${(hz / 1e3).toFixed(1)} kHz`;
+  return `${hz.toFixed(0)} Hz`;
+}
+
+function buildFreqTicks(spec, count = 5) {
+  const minHz = Number(spec?.freq_min_hz);
+  const maxHz = Number(spec?.freq_max_hz);
+
+  if (!Number.isFinite(minHz) || !Number.isFinite(maxHz) || minHz === maxHz) {
+    return [
+      { pos: 0, label: '低频' },
+      { pos: 1, label: '高频' },
+    ];
+  }
+
+  return Array.from({ length: count }, (_, index) => {
+    const pos = count <= 1 ? 0 : index / (count - 1);
+    return {
+      pos,
+      label: formatHzLabel(minHz + (maxHz - minHz) * pos),
+    };
+  });
+}
+
+function drawChartAxes(ctx, plot, options = {}) {
+  const xTicks = options.xTicks || [];
+  const yTicks = options.yTicks || [];
+  const xLabel = options.xLabel || '';
+  const yLabel = options.yLabel || '';
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillStyle = '#9fb2d4';
+  ctx.lineWidth = 1;
+  ctx.font = '11px sans-serif';
+  ctx.textBaseline = 'middle';
+
+  ctx.strokeRect(plot.x + 0.5, plot.y + 0.5, plot.w - 1, plot.h - 1);
+
+  xTicks.forEach(tick => {
+    const x = plot.x + tick.pos * plot.w;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(x, plot.y);
+    ctx.lineTo(x, plot.y + plot.h);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.beginPath();
+    ctx.moveTo(x, plot.y + plot.h);
+    ctx.lineTo(x, plot.y + plot.h + 4);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillText(tick.label, x, plot.y + plot.h + 14);
+  });
+
+  yTicks.forEach(tick => {
+    const y = plot.y + (1 - tick.pos) * plot.h;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(plot.x, y);
+    ctx.lineTo(plot.x + plot.w, y);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.beginPath();
+    ctx.moveTo(plot.x - 4, y);
+    ctx.lineTo(plot.x, y);
+    ctx.stroke();
+
+    ctx.textAlign = 'right';
+    ctx.fillText(tick.label, plot.x - 8, y);
+  });
+
+  if (xLabel) {
+    ctx.textAlign = 'right';
+    ctx.fillText(xLabel, plot.x + plot.w, plot.y + plot.h + 28);
+  }
+
+  if (yLabel) {
+    ctx.save();
+    ctx.translate(12, plot.y + plot.h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 
   app.renderUsrpFftMessage = function renderUsrpFftMessage(message) {
     if (!message || message.type !== 'fft') return;
@@ -273,6 +373,19 @@
     spectrumCanvas.height = spectrumHeight;
     canvas.width = cssWidth;
     canvas.height = cssHeight;
+    const spectrumPlot = {
+      x: 58,
+      y: 14,
+      w: Math.max(spectrumCanvas.width - 72, 20),
+      h: Math.max(spectrumCanvas.height - 52, 20),
+    };
+
+    const waterfallPlot = {
+      x: 58,
+      y: 14,
+      w: Math.max(canvas.width - 72, 20),
+      h: Math.max(canvas.height - 52, 20),
+    };
     spectrumCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -300,30 +413,41 @@
     const maxValue = Math.max(...values);
     const span = Math.max(maxValue - minValue, 1e-6);
 
+    const freqTicks = buildFreqTicks(spec, 5);
+
     spectrumCtx.fillStyle = '#0b1422';
     spectrumCtx.fillRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
-    spectrumCtx.strokeStyle = 'rgba(255,255,255,0.08)';
-    spectrumCtx.lineWidth = 1;
-    for (let i = 1; i < 4; i += 1) {
-      const y = (spectrumCanvas.height * i) / 4;
-      spectrumCtx.beginPath();
-      spectrumCtx.moveTo(0, y);
-      spectrumCtx.lineTo(spectrumCanvas.width, y);
-      spectrumCtx.stroke();
-    }
+
+    drawChartAxes(spectrumCtx, spectrumPlot, {
+      xTicks: freqTicks,
+      yTicks: [
+        { pos: 0, label: `${minValue.toFixed(1)} dB` },
+        { pos: 0.5, label: `${((minValue + maxValue) / 2).toFixed(1)} dB` },
+        { pos: 1, label: `${maxValue.toFixed(1)} dB` },
+      ],
+      xLabel: 'Frequency',
+      yLabel: 'Power',
+    });
+
     spectrumCtx.strokeStyle = '#7ce7c6';
     spectrumCtx.lineWidth = 2;
     spectrumCtx.beginPath();
+
     values.forEach((value, index) => {
-      const x = values.length <= 1 ? 0 : (index / (values.length - 1)) * spectrumCanvas.width;
-      const y = spectrumCanvas.height - 10 - ((value - minValue) / span) * (spectrumCanvas.height - 22);
+      const x = spectrumPlot.x + (
+        values.length <= 1 ? 0 : (index / (values.length - 1)) * spectrumPlot.w
+      );
+      const y = spectrumPlot.y + spectrumPlot.h - ((value - minValue) / span) * spectrumPlot.h;
+
       if (index === 0) spectrumCtx.moveTo(x, y);
       else spectrumCtx.lineTo(x, y);
     });
+
     spectrumCtx.stroke();
+
     spectrumCtx.fillStyle = '#9fb2d4';
     spectrumCtx.font = '12px sans-serif';
-    spectrumCtx.fillText('当前频谱基线', 12, 18);
+    spectrumCtx.fillText('当前频谱基线', spectrumPlot.x + 8, spectrumPlot.y + 16);
 
     const key = `${spec.signal_id || ''}:${spec.file_name || ''}:${spec.timestamp || ''}`;
     if (key && key !== app.state.lastSpectrogramKey && values.length) {
@@ -335,20 +459,33 @@
 
     ctx.fillStyle = '#0b1422';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     const rows = app.state.waterfallRows.length ? app.state.waterfallRows : spec.pixels;
+
     rows.forEach((row, rowIndex) => {
-      const y = (rowIndex / Math.max(rows.length, 1)) * canvas.height;
-      const h = Math.ceil(canvas.height / Math.max(rows.length, 1));
+      const y = waterfallPlot.y + (rowIndex / Math.max(rows.length, 1)) * waterfallPlot.h;
+      const h = Math.ceil(waterfallPlot.h / Math.max(rows.length, 1));
+
       row.forEach((value, colIndex) => {
         const [r, g, b] = powerColor(value);
-        const x = (colIndex / Math.max(row.length, 1)) * canvas.width;
-        const w = Math.ceil(canvas.width / Math.max(row.length, 1));
+        const x = waterfallPlot.x + (colIndex / Math.max(row.length, 1)) * waterfallPlot.w;
+        const w = Math.ceil(waterfallPlot.w / Math.max(row.length, 1));
+
         ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
         ctx.fillRect(x, y, w, h);
       });
     });
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+
+    drawChartAxes(ctx, waterfallPlot, {
+      xTicks: freqTicks,
+      yTicks: [
+        { pos: 0, label: '新' },
+        { pos: 0.5, label: `${rows.length} 帧` },
+        { pos: 1, label: '旧' },
+      ],
+      xLabel: 'Frequency',
+      yLabel: 'Time',
+    });
 
     metaEl.textContent = `${spec.file_name || '-'} ｜ channel ${spec.channel ?? '-'} ｜ center ${spec.freq_hz ?? '-'} Hz ｜ 时长 ${spec.duration_ms ?? '-'} ms ｜ 功率 ${spec.value_min_db ?? '-'} ~ ${spec.value_max_db ?? '-'} dB`;
   };
