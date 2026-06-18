@@ -120,7 +120,7 @@ h3 {
 
 .signal-flow-grid {
   display: grid;
-  grid-template-rows: 92px 172px;
+  grid-template-rows: 132px 220px;
   gap: 10px;
 }
 
@@ -134,11 +134,11 @@ h3 {
 }
 
 .spectrum-wrap {
-  height: 92px;
+  height: 132px;
 }
 
 .waterfall-wrap {
-  height: 172px;
+  height: 220px;
 }
 
 .chart-wrap canvas {
