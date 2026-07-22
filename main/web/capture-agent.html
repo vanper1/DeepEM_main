@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 采集智能体</title>
+  <link rel="stylesheet" href="/static/capture-agent.css?v=capture-agent-v7-20260629">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark">D</span>
+      <span><strong>DeepEM</strong><small>采集智能体</small></span>
+    </a>
+
+    <div class="task-headline">
+      <strong id="currentTaskTitle">新建采集任务</strong>
+      <span id="plannerModel">正在检查服务</span>
+    </div>
+
+    <div class="task-meta">
+      <span id="planVersion" class="meta-pill">-</span>
+      <span id="taskStatus" class="status-pill idle">空闲</span>
+      <span id="overallProgressText" class="progress-label">0%</span>
+    </div>
+
+    <div class="top-actions">
+      <button id="baselineManagerBtn" class="btn" type="button">基线管理</button>
+      <button id="approveTaskBtn" class="btn primary" type="button" disabled>批准执行</button>
+      <button id="pauseTaskBtn" class="btn" type="button" disabled>暂停</button>
+      <button id="resumeTaskBtn" class="btn" type="button" disabled>继续</button>
+      <button id="cancelTaskBtn" class="btn danger" type="button" disabled>停止</button>
+      <a class="btn ghost" href="/detect/run">返回</a>
+    </div>
+  </header>
+
+  <div class="global-progress"><b id="overallProgressBar"></b></div>
+
+  <main class="workspace">
+    <aside class="sidebar panel">
+      <div class="panel-title-row">
+        <div><span class="eyebrow">FLOW</span><h2>执行计划</h2></div>
+        <button id="newTaskBtn" class="text-btn" type="button">＋ 新任务</button>
+      </div>
+
+      <label class="field-label" for="taskPicker">历史任务</label>
+      <div class="history-picker-row">
+        <select id="taskPicker" class="select"><option value="">暂无任务</option></select>
+        <button id="renameTaskBtn" class="mini-btn" type="button" disabled>重命名</button>
+        <button id="deleteTaskBtn" class="mini-btn danger" type="button" disabled>删除</button>
+      </div>
+
+      <div class="approval-note">
+        <i></i>
+        <span>执行前会校验工具、依赖、占位符和参数边界；批准后锁定当前计划。</span>
+      </div>
+
+      <div id="planNodeList" class="node-list">
+        <div class="empty compact">创建任务后显示执行节点</div>
+      </div>
+    </aside>
+
+    <section class="detail panel">
+      <div id="detailEmpty" class="empty">
+        <div class="empty-icon">◎</div>
+        <strong>尚未选择节点</strong>
+        <span>创建任务或从左侧选择一个节点。</span>
+      </div>
+
+      <div id="detailContent" class="detail-content hidden">
+        <div class="node-header">
+          <div>
+            <span class="eyebrow">NODE</span>
+            <h1 id="detailTitle">节点详情</h1>
+            <p id="detailSubtitle"></p>
+          </div>
+          <span id="detailStatus" class="status-pill idle">未选择</span>
+        </div>
+
+        <div class="metric-strip">
+          <div><span>进度</span><strong id="nodeProgress">0%</strong></div>
+          <div><span>尝试</span><strong id="nodeAttempts">0</strong></div>
+          <div><span>开始</span><strong id="nodeStarted">-</strong></div>
+          <div><span>结束</span><strong id="nodeEnded">-</strong></div>
+        </div>
+
+        <article class="card summary-card">
+          <div class="card-title"><h3>当前动作</h3><span id="nodeSummaryTime"></span></div>
+          <p id="nodeSummary">等待执行</p>
+        </article>
+
+        <article id="liveSpectrumCard" class="card live-spectrum-card hidden">
+          <div class="card-title">
+            <div><h3>实时频谱监测</h3><span>采集节点执行时自动订阅 USRP FFT 数据</span></div>
+            <span id="liveSpectrumStatus" class="live-spectrum-status">等待采集</span>
+          </div>
+          <div class="live-spectrum-grid">
+            <div class="live-chart-block">
+              <span>当前频谱</span>
+              <canvas id="liveSpectrumCanvas" aria-label="当前频谱曲线"></canvas>
+            </div>
+            <div class="live-chart-block">
+              <span>实时瀑布图</span>
+              <canvas id="liveWaterfallCanvas" aria-label="实时频谱瀑布图"></canvas>
+            </div>
+          </div>
+          <div id="liveSpectrumMeta" class="live-spectrum-meta">等待采集节点提供实时 FFT 数据</div>
+        </article>
+
+        <div class="two-column">
+          <article class="card">
+            <h3>目标与验收</h3>
+            <p id="nodeDescription" class="body-copy"></p>
+            <div id="nodeCriteria" class="criteria"></div>
+          </article>
+          <article class="card">
+            <h3>依赖与工具</h3>
+            <div id="nodeDependencies" class="chips"></div>
+            <div class="tool-row"><span>执行器</span><code id="nodeTool">-</code></div>
+          </article>
+        </div>
+
+        <article class="card logs-card">
+          <div class="card-title"><h3>执行日志</h3><span id="logCount">0 条</span></div>
+          <div id="nodeLogs" class="logs"></div>
+        </article>
+
+        <details class="advanced-card">
+          <summary>技术详情</summary>
+          <div class="advanced-grid">
+            <div><h4>节点输入</h4><pre id="nodeInputs">{}</pre></div>
+            <div><h4>节点输出</h4><pre id="nodeOutputs">{}</pre></div>
+          </div>
+          <div id="codeCard" class="code-block hidden">
+            <div class="card-title"><h4>生成的采集函数</h4><button id="copyCodeBtn" class="mini-btn" type="button">复制</button></div>
+            <pre id="generatedCode"></pre>
+          </div>
+          <div class="note-block">
+            <h4>人工备注</h4>
+            <textarea id="nodeNote" rows="3" placeholder="记录现场情况或后续处理建议"></textarea>
+            <div><button id="saveNodeNoteBtn" class="mini-btn primary" type="button">保存备注</button><span id="noteSaveStatus"></span></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <aside class="thinking panel">
+      <div class="panel-title-row">
+        <div><span class="eyebrow">LIVE</span><h2>实时执行过程</h2></div>
+        <span id="connectionStatus" class="live-state">未连接</span>
+      </div>
+      <div id="reasoningEmpty" class="reasoning-empty">
+        <span class="thinking-orb"></span>
+        <strong>等待生成采集计划</strong>
+        <p>采集阶段、工具进度与结构化输出会在这里实时显示，便于审批和追踪。</p>
+      </div>
+      <pre id="reasoningStream" class="reasoning-stream hidden"></pre>
+      <details class="structured-output">
+        <summary>查看结构化输出流</summary>
+        <pre id="structuredStream">尚无输出</pre>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="composer panel">
+    <div class="composer-left">
+      <div class="composer-label-row">
+        <strong>模板</strong>
+        <div class="template-actions">
+          <button id="templateDetailBtn" class="upload-btn" type="button">查看详细</button>
+          <label class="upload-btn" for="templateUpload">上传 DOCX</label>
+        </div>
+        <input id="templateUpload" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden>
+      </div>
+      <div id="templateList" class="template-list"><span class="muted">未选择模板</span></div>
+      <div id="uploadStatus" class="upload-status"></div>
+    </div>
+
+    <div class="composer-center">
+      <textarea id="instructionInput" rows="3" placeholder="描述采集目标、频率范围、步长、重复次数等；Enter 发送，Shift+Enter 换行"></textarea>
+      <button id="sendInstructionBtn" class="send-btn" type="button" disabled>
+        <strong>生成计划</strong><span>提交任务</span>
+      </button>
+    </div>
+
+    <div class="composer-right">
+      <strong>任务产物</strong>
+      <div id="artifactList" class="artifact-list"><span class="muted">完成后显示结果与报告</span></div>
+    </div>
+  </footer>
+
+  <div id="approvalModal" class="modal-backdrop hidden">
+    <section class="approval-modal" role="dialog" aria-modal="true" aria-labelledby="approvalModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">CONFIRM</span>
+          <h2 id="approvalModalTitle">确认采集参数与执行流程</h2>
+        </div>
+        <span id="approvalModalStatus" class="status-pill awaiting_approval">待批准</span>
+      </div>
+      <div class="modal-body">
+        <article>
+          <h3>采集参数确认</h3>
+          <div id="approvalParamGrid" class="param-grid"></div>
+        </article>
+        <article>
+          <h3>固定工具流程</h3>
+          <div id="approvalFlow" class="arrow-flow"></div>
+        </article>
+      </div>
+      <div class="approval-param-footer">
+        <span id="approvalParamStatus"></span>
+        <button id="saveApprovalParamsBtn" class="mini-btn" type="button">保存参数修改</button>
+      </div>
+      <div class="modal-actions">
+        <button id="rejectPlanBtn" class="btn danger" type="button">拒绝执行</button>
+        <button id="approvePlanModalBtn" class="btn primary" type="button">批准执行</button>
+      </div>
+    </section>
+  </div>
+
+
+  <div id="templateModal" class="modal-backdrop hidden">
+    <section class="template-modal" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">DOCX</span>
+          <h2 id="templateModalTitle">已上传模板</h2>
+          <p>管理采集任务可用的 DOCX 模板，可勾选、预览、重命名或删除。</p>
+        </div>
+        <button id="closeTemplateModalBtn" class="modal-close-btn" type="button" aria-label="关闭模板详情">×</button>
+      </div>
+      <div id="templateManagerList" class="template-manager-list"></div>
+    </section>
+  </div>
+
+  <div id="docxPreviewModal" class="modal-backdrop hidden">
+    <section class="docx-preview-modal" role="dialog" aria-modal="true" aria-labelledby="docxPreviewTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">PREVIEW</span>
+          <h2 id="docxPreviewTitle">DOCX 文字预览</h2>
+          <p id="docxPreviewFile"></p>
+        </div>
+        <button id="closeDocxPreviewBtn" class="modal-close-btn" type="button" aria-label="关闭 DOCX 预览">×</button>
+      </div>
+      <pre id="docxPreviewText" class="docx-preview-text">正在读取……</pre>
+    </section>
+  </div>
+
+    <div id="spectrumModal" class="modal-backdrop spectrum-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="spectrumModalTitle">
+    <section class="spectrum-modal">
+      <div class="modal-head spectrum-modal-head">
+        <div>
+          <span class="eyebrow">SPECTRUM</span>
+          <h2 id="spectrumModalTitle">频谱可视化</h2>
+          <p id="spectrumModalFile"></p>
+        </div>
+        <button id="closeSpectrumModalBtn" class="modal-close-btn" type="button" aria-label="关闭频谱可视化">×</button>
+      </div>
+      <div class="spectrum-image-stage">
+        <div id="spectrumModalLoading" class="spectrum-loading">正在生成频谱图片……</div>
+        <img id="spectrumModalImage" class="hidden" alt="NPZ 频谱可视化结果">
+      </div>
+    </section>
+  </div>
+
+
+  <div id="baselineModal" class="modal-backdrop hidden">
+    <section class="baseline-modal" role="dialog" aria-modal="true" aria-labelledby="baselineModalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">BASELINE</span>
+          <h2 id="baselineModalTitle">场所基线管理</h2>
+          <p>选择一个已采集的 .npz 作为当前场所基线；两个研判工具都会围绕该基线工作。</p>
+        </div>
+        <button id="closeBaselineModalBtn" class="modal-close-btn" type="button" aria-label="关闭基线管理">×</button>
+      </div>
+      <div class="baseline-settings-grid">
+        <label class="param-item editable-param"><span>研判阈值 dB</span><input id="baselineThresholdInput" type="number" step="0.5" min="0.1" max="80" value="8"></label>
+        <label class="param-item editable-param"><span>中心伪峰剔除 bins</span><input id="baselineDcBinsInput" type="number" step="1" min="0" max="128" value="5"></label>
+        <label class="param-item editable-param"><span>边缘剔除 bins</span><input id="baselineEdgeBinsInput" type="number" step="1" min="0" max="256" value="2"></label>
+      </div>
+      <div class="baseline-hint">阈值越低越敏感，越容易发现轻微异常；阈值越高越保守，越不容易判为异常。</div>
+      <div id="baselineList" class="baseline-list"><div class="empty compact">正在读取 .npz 文件……</div></div>
+      <div class="modal-actions">
+        <span id="baselineSaveStatus" class="approval-param-status"></span>
+        <button id="refreshBaselineListBtn" class="btn" type="button">刷新列表</button>
+        <button id="saveBaselineBtn" class="btn primary" type="button">设为当前基线</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/capture-agent.js?v=capture-agent-v7-20260629"></script>
+</body>
+</html>

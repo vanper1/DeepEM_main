@@ -1,0 +1,307 @@
+.db-manager-body {
+  overflow: hidden;
+}
+
+.db-manager-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--surface-strong);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+  position: relative;
+}
+
+.db-manager-shell {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+.db-manager-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.db-manager-sidebar-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.db-manager-sidebar-header h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.db-manager-sidebar-header .muted {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.db-manager-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.db-manager-list .empty-state {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.db-card {
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.db-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.db-card-header:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+}
+
+.db-card-header.active {
+  border-color: var(--blue);
+  background: rgba(91, 140, 255, 0.1);
+}
+
+.db-card-info {
+  min-width: 0;
+}
+
+.db-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-card-time {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.db-card-arrow {
+  font-size: 11px;
+  color: var(--text-faint);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.db-card-header.expanded .db-card-arrow {
+  transform: rotate(90deg);
+}
+
+.db-card-tables {
+  display: none;
+  padding: 4px 0 4px 12px;
+}
+
+.db-card-tables.open {
+  display: block;
+}
+
+.db-table-item {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.db-table-item:hover {
+  background: var(--surface-elevated);
+  color: var(--text);
+}
+
+.db-table-item.selected {
+  background: rgba(91, 140, 255, 0.14);
+  color: var(--blue-strong);
+  font-weight: 600;
+}
+
+/* --- Panel --- */
+
+.db-manager-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.db-manager-panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.db-manager-panel-placeholder {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.db-manager-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.db-manager-panel-subtitle {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.db-manager-data-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.db-manager-table-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.db-manager-table-info .info-text {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.db-manager-table-container {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.db-manager-table-container .empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 14px;
+}
+
+.db-manager-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.db-manager-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.db-manager-table th {
+  background: var(--surface-strong);
+  border-bottom: 2px solid var(--border-strong);
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-soft);
+}
+
+.db-manager-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-manager-table tbody tr:hover td {
+  background: var(--surface-elevated);
+}
+
+.db-manager-table td.null-cell {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* --- Pagination --- */
+
+.db-manager-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.db-manager-pagination .page-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--text-soft);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.db-manager-pagination .page-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-strong);
+}
+
+.db-manager-pagination .page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.db-manager-pagination .page-info {
+  font-size: 12px;
+  color: var(--text-soft);
+  min-width: 100px;
+  text-align: center;
+}
+
+/* --- Button in popover --- */
+
+.db-manager-btn {
+  display: block;
+  width: 100%;
+  margin: 6px 0 10px;
+  text-align: center;
+  font-size: 13px;
+}

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 智能助手</title>
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.location.replace('http://10.168.1.102:8141/chat');
+    }
+  </script>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="chat-page-body">
+  <header class="topbar chat-topbar">
+    <div class="brand"><span class="chat-avatar assistant">智</span><span>DeepEM 智能助手</span></div>
+    <div class="task">task1</div>
+    <div class="actions">
+      <span class="chat-avatar user" title="用户头像">用</span>
+      <a class="btn btn-detail" href="/home">返回主页面</a>
+    </div>
+  </header>
+
+  <main class="chat-shell chat-shell-split">
+    <aside class="chat-sidebar">
+      <div class="chat-sidebar-header">
+        <div>
+          <h2>会话列表</h2>
+          <div class="muted"></div>
+        </div>
+        <button id="chatNewSessionBtn" class="btn btn-send" type="button">+ 新聊天</button>
+      </div>
+      <div id="chatSessionList" class="chat-session-list">
+        <div class="empty-state">正在加载会话...</div>
+      </div>
+    </aside>
+
+    <section class="chat-page-panel">
+      <div class="chat-main">
+        <div class="chat-timeline-wrap">
+          <div id="chatTimeline" class="chat-timeline"></div>
+          <button id="chatBackToLatest" class="btn btn-detail chat-back-to-latest hidden" type="button">回到最新</button>
+        </div>
+
+        <form id="chatComposer" class="chat-composer">
+          <textarea id="chatComposerInput" placeholder="输入问题、状态查询或人工反馈..." rows="3"></textarea>
+          <div id="chatAttachmentLane" class="chat-attachment-lane hidden"></div>
+          <input
+            id="chatUploadInput"
+            type="file"
+            accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.pdf,.md,.txt,.doc,.docx,.bin"
+            multiple
+            hidden
+          >
+          <div class="chat-composer-actions">
+            <div class="chat-composer-actions-left">
+              <button id="chatUploadButton" class="btn btn-detail" type="button">资料上传</button>
+              <button id="docManagementButton" class="btn btn-detail" type="button">资料管理</button>
+              <span id="chatAttachmentHint" class="muted">支持图片、PDF、Markdown、TXT、DOCX、BIN。</span>
+              <div id="chatUploadProgress" class="chat-upload-progress hidden" aria-live="polite">
+                <div class="chat-upload-progress-track"><span id="chatUploadProgressFill" class="chat-upload-progress-fill"></span></div>
+                <span id="chatUploadProgressText" class="chat-upload-progress-text">0%</span>
+              </div>
+              <div class="nl2sql-config-wrap">
+                <button id="nl2sqlConfigButton" class="btn btn-detail" type="button">选项</button>
+                <div id="nl2sqlPopover" class="nl2sql-popover hidden">
+                  <div class="nl2sql-popover-header">
+                    <div class="nl2sql-popover-title">选项</div>
+                    <button id="nl2sqlPopoverClose" class="nl2sql-popover-close" type="button">×</button>
+                  </div>
+                  <button id="dbManagerButton" class="btn btn-detail db-manager-btn" type="button">数据库管理</button>
+                  <label class="nl2sql-check-row">
+                    <input id="nl2sqlForceEnabled" type="checkbox">
+                    <span>强制开启查表功能</span>
+                  </label>
+                  <label class="nl2sql-check-row">
+                    <input id="nl2sqlAutoSelectTables" type="checkbox" checked>
+                    <span>自动选表</span>
+                  </label>
+                  <div class="nl2sql-db-row">
+                    <div>
+                      <div class="nl2sql-section-title">数据库</div>
+                      <div id="nl2sqlDbStatus" class="nl2sql-db-status muted">当前使用默认数据库。</div>
+                    </div>
+                    <div class="nl2sql-db-actions">
+                      <button id="nl2sqlDbUploadButton" class="btn btn-detail nl2sql-db-upload" type="button" title="上传数据库或表格">+</button>
+                      <button id="nl2sqlDbResetButton" class="btn btn-detail" type="button">使用默认</button>
+                    </div>
+                    <input id="nl2sqlDbFileInput" type="file" accept=".db,.sqlite,.sqlite3,.xls,.xlsx,.csv,.tsv" hidden>
+                  </div>
+                  <div class="nl2sql-db-select-wrap">
+                    <label class="nl2sql-section-title" for="nl2sqlDbDropdownTrigger">已导入数据库</label>
+                    <div id="nl2sqlDbDropdown" class="nl2sql-db-dropdown">
+                      <button id="nl2sqlDbDropdownTrigger" class="nl2sql-db-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span id="nl2sqlDbDropdownLabel">默认数据库</span>
+                        <span class="nl2sql-db-trigger-icon">⌄</span>
+                      </button>
+                      <div id="nl2sqlDbDropdownMenu" class="nl2sql-db-menu hidden">
+                        <div id="nl2sqlDbDropdownList" class="nl2sql-db-list" role="listbox"></div>
+                        <div id="nl2sqlDbHoverPanel" class="nl2sql-db-hover-panel">
+                          <div class="nl2sql-db-hover-title">表清单</div>
+                          <div class="nl2sql-db-hover-body">鼠标指向数据库查看表。</div>
+                        </div>
+                      </div>
+                    </div>
+                    <select id="nl2sqlDbSelect" class="nl2sql-db-select hidden" aria-hidden="true"></select>
+                  </div>
+                  <div id="nl2sqlManualSection" class="nl2sql-manual-section disabled" aria-disabled="true">
+                    <div class="nl2sql-section-title">手动选表</div>
+                    <div id="nl2sqlManualList" class="nl2sql-manual-list">
+                      <div class="nl2sql-loading-text">正在读取表名...</div>
+                    </div>
+                  </div>
+                  <div class="workspace-baseline-section">
+                    <div class="workspace-baseline-header">
+                      <div>
+                        <div class="nl2sql-section-title">场所基线</div>
+                        <div id="placeBaselineStatus" class="nl2sql-loading-text">尚未读取基线。</div>
+                      </div>
+                      <div class="workspace-baseline-actions">
+                        <button id="placeBaselineInitButton" class="btn btn-detail" type="button">从工作区初始化</button>
+                        <button id="placeBaselineSaveButton" class="btn btn-detail" type="button">保存</button>
+                      </div>
+                    </div>
+                    <textarea id="placeBaselineInput" class="workspace-baseline-input" rows="4" placeholder="每行一个基线指纹，例如 wifi-ch1-scan"></textarea>
+                    <div id="placeBaselineHint" class="nl2sql-config-hint muted">基线来自工作区知识，需手动初始化后才保存到当前任务。</div>
+                  </div>
+                  <div id="nl2sqlConfigHint" class="nl2sql-config-hint muted">默认自动选表，未强制开启查表功能。</div>
+                </div>
+              </div>
+              <button id="modelSettingsToggle" class="btn btn-detail" type="button">模型参数</button>
+            </div>
+            <button id="chatComposerSend" class="btn btn-send" type="submit">发送</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="modelSettingsBackdrop" class="model-settings-backdrop hidden"></div>
+  <aside id="modelSettingsDrawer" class="chat-model-sidebar model-settings-drawer hidden" aria-label="模型推理参数" aria-hidden="true">
+      <div class="model-settings-header">
+        <div>
+          <h2>模型参数</h2>
+          <div class="model-settings-subtitle">Qwen3.6 / vLLM</div>
+        </div>
+        <div class="model-settings-header-actions">
+          <button id="modelSettingsReset" class="btn btn-detail model-settings-reset" type="button">重置</button>
+          <button id="modelSettingsClose" class="model-settings-close" type="button" aria-label="关闭模型参数">×</button>
+        </div>
+      </div>
+
+      <div class="model-settings-list">
+        <label class="model-param-row" for="llmTemperature">
+          <span class="model-param-label">温度</span>
+          <span id="llmTemperatureValue" class="model-param-value">1.00</span>
+          <input id="llmTemperature" type="range" min="0" max="2" step="0.05" value="1">
+        </label>
+
+        <label class="model-param-row" for="llmTopP">
+          <span class="model-param-label">top_p</span>
+          <span id="llmTopPValue" class="model-param-value">0.95</span>
+          <input id="llmTopP" type="range" min="0" max="1" step="0.01" value="0.95">
+        </label>
+
+        <label class="model-param-row" for="llmTopK">
+          <span class="model-param-label">top_k</span>
+          <input id="llmTopK" class="model-param-number" type="number" min="1" max="200" step="1" value="20">
+        </label>
+
+        <label class="model-param-row" for="llmMinP">
+          <span class="model-param-label">min_p</span>
+          <span id="llmMinPValue" class="model-param-value">0.00</span>
+          <input id="llmMinP" type="range" min="0" max="1" step="0.01" value="0">
+        </label>
+
+        <label class="model-param-row" for="llmReasoningEffort">
+          <span class="model-param-label">思考深度</span>
+          <select id="llmReasoningEffort" class="model-param-select">
+            <option value="low">低</option>
+            <option value="medium" selected>中</option>
+            <option value="high">高</option>
+          </select>
+        </label>
+
+        <label class="model-param-row" for="llmPresencePenalty">
+          <span class="model-param-label">存在惩罚</span>
+          <span id="llmPresencePenaltyValue" class="model-param-value">1.50</span>
+          <input id="llmPresencePenalty" type="range" min="-2" max="2" step="0.05" value="1.5">
+        </label>
+
+        <label class="model-param-row" for="llmRepetitionPenalty">
+          <span class="model-param-label">重复惩罚</span>
+          <span id="llmRepetitionPenaltyValue" class="model-param-value">1.00</span>
+          <input id="llmRepetitionPenalty" type="range" min="0.01" max="2" step="0.01" value="1">
+        </label>
+
+        <label class="model-toggle-row">
+          <input id="llmEnableThinking" type="checkbox" checked>
+          <span>启用 thinking</span>
+        </label>
+
+        <label class="model-toggle-row">
+          <input id="llmPreserveThinking" type="checkbox">
+          <span>preserve_thinking</span>
+        </label>
+
+        <label class="model-param-row" for="llmThinkingTokenBudget">
+          <span class="model-param-label">思考 token 上限</span>
+          <input id="llmThinkingTokenBudget" class="model-param-number" type="number" min="1" max="131072" step="1" value="16384">
+        </label>
+      </div>
+
+      <div class="model-settings-note">
+        `preserve_thinking` 通过 vLLM `chat_template_kwargs` 发送；默认关闭，避免多轮对话反复携带历史思考链导致循环。
+      </div>
+  </aside>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/vendor/marked.min.js"></script>
+  <script src="/static/vendor/purify.min.js"></script>
+  <script src="/static/js/core.js"></script>
+  <script src="/static/js/chat.js?v=merged-20260604"></script>
+</body>
+</html>

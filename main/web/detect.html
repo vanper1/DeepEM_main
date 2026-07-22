@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 智能检测</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 智能检测</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-workspace">
+  <section class="deem-panel">
+    <div class="deem-panel-title"><h2>任务列表，按照时间倒序</h2><span class="hint">点击任务查看右侧详情</span></div>
+    <div class="deem-toolbar">
+      <input id="taskSearchInput" class="deem-input" placeholder="输入任务时间、名称、地点、状态">
+      <button id="taskSearchBtn" class="deem-btn">搜索</button>
+      <button id="taskFilterBtn" class="deem-btn ghost">筛选</button>
+      <button id="taskBatchBtn" class="deem-btn ghost">批量操作</button>
+      <button id="taskDeleteBtn" class="deem-btn danger">删除选中</button>
+      <a class="deem-btn primary" href="/detect/new">新建任务</a>
+      <a class="deem-btn ok" href="/static/dashboard.html">实时检测控制台</a>
+    </div>
+    <div class="deem-table-wrap"><table class="deem-table"><thead><tr id="taskTableHead"><th>任务时间</th><th>任务名称</th><th>任务地点</th><th>任务状态</th><th>操作员</th></tr></thead><tbody id="taskTableBody"></tbody></table></div>
+  </section>
+  <section class="deem-panel strong deem-detail-card">
+    <div class="deem-panel-title"><h2>任务信息</h2><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+    <div id="taskDetail"></div>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=20260602-commercial1"></script>
+</body>
+</html>

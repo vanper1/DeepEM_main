@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 检测模板管理</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 检测模板管理</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-workspace">
+  <section class="deem-panel">
+    <div class="deem-panel-title"><h2>模板列表，按照时间倒序</h2><span class="hint">点击模板查看右侧详情</span></div>
+    <div class="deem-toolbar">
+      <input id="templateSearchInput" class="deem-input" placeholder="输入模板名称、场景、操作员">
+      <button id="templateSearchBtn" class="deem-btn">搜索</button>
+      <button id="templateFilterBtn" class="deem-btn ghost">筛选</button>
+      <button class="deem-btn ghost" type="button" onclick="alert('已进入批量选择模拟模式。')">批量操作</button>
+      <a class="deem-btn primary" href="/templates/new">新建模板</a>
+    </div>
+    <div class="deem-table-wrap"><table class="deem-table"><thead><tr><th>创建时间</th><th>模板名称</th><th>适用场景</th><th>操作员</th></tr></thead><tbody id="templateTableBody"></tbody></table></div>
+  </section>
+  <section class="deem-panel strong deem-detail-card">
+    <div class="deem-panel-title"><h2>模板信息</h2><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+    <div id="templateDetail"></div>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=merged-20260604"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 智能检测</title>
+  <link rel="stylesheet" href="/static/styles.css?v=detect-device-mhz-20260722">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 智能检测</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/detect/new">返回任务配置</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-check-layout detect-device-layout">
+  <section class="deem-panel strong">
+    <div class="deem-panel-title"><h2 id="verifyTaskName">调用设备平台接口</h2><span class="hint">获取当前设备状态、设备能力与参数范围</span></div>
+    <div id="deviceStatusSummary" class="deem-report-box compact">正在调用设备平台接口……</div>
+    <div id="deviceListPane" class="detect-device-list"><div class="deem-step"><span class="dot"></span><p>正在扫描设备并读取能力范围。</p></div></div>
+    <div id="deviceParamPane" class="deem-report-box compact"></div>
+  </section>
+  <section class="deem-panel deem-resource-card">
+    <div class="deem-checkmark">↻</div>
+    <h2 id="deviceReadyTitle">等待选择设备</h2>
+    <p id="deviceReadyText">选择设备后点击开始执行，将跳转到采集智能体界面，并把任务意图、模板、设备状态、能力与参数范围一起用于生成采集计划。</p>
+    <div class="deem-form-actions"><a class="deem-btn ghost" href="/detect/new">返回</a><button id="startDetectBtn" class="deem-btn primary" type="button" disabled>开始执行</button></div>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=detect-device-mhz-20260722"></script>
+</body>
+</html>

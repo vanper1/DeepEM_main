@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 智能检测执行</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="judge-page-body">
+  <header class="topbar">
+    <div class="brand">DeepEM 智能检测</div>
+    <div class="task"><span></span> · 当前任务：<span id="taskId">-</span></div>
+    <div class="actions">
+      <a class="btn btn-detail" href="/capture-agent">采集智能体</a>
+      <a class="btn btn-detail" href="/home">返回主页面</a>
+      <button id="deviceMgmtBtn" class="btn btn-device-mgmt" type="button">设备管理</button>
+      <button id="toggleStream" class="btn btn-start">启动采集</button>
+      <button id="toggleDemoStream" class="btn btn-start">模拟采集</button>
+      <button id="stopCapture" class="btn btn-stop" disabled>停止采集</button>
+      <button id="resetPlatform" class="btn btn-reset">初始化平台</button>
+      <button id="toggleLogs" class="btn btn-log">查看日志</button>
+    </div>
+  </header>
+
+  <div class="judge-current"><strong>当前任务：</strong><span>智能检测执行任务</span><span>智能检测报告阅览区与实时研判模块</span></div>
+  <main class="dashboard">
+    <section class="left-col panel-stack">
+      <div class="panel">
+        <h3>实时采集状态</h3>
+        <div class="status-row">
+          <span id="statusLamp" class="lamp off"></span>
+          <span id="statusText">collector_agent 未触发</span>
+          <span id="tickCount">文件 0</span>
+        </div>
+        <div class="signal-flow-grid">
+          <div class="chart-wrap spectrum-wrap">
+            <canvas id="spectrumCanvas"></canvas>
+          </div>
+          <div class="chart-wrap waterfall-wrap">
+            <canvas id="spectrogramCanvas"></canvas>
+          </div>
+        </div>
+        <div class="muted" id="spectrogramMeta">等待 USRP 上传后显示实时频谱基线与瀑布图</div>
+        <div class="kv-grid" id="batchInfo"></div>
+      </div>
+
+      <div class="panel grow-panel">
+        <div class="panel-header-row panel-header-tight">
+          <h3 id="signalResultTitle">已接收信号数量：0</h3>
+          <button id="showSignalHistory" class="btn btn-detail" type="button">查看详细</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>通道</th>
+                <th>评分</th>
+                <th>分类</th>
+                <th>指纹</th>
+                <th>承载信息</th>
+              </tr>
+            </thead>
+            <tbody id="obsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="center-col panel-stack">
+      <div class="panel grow-panel timeline-panel">
+        <div class="panel-header-row">
+          <h3>运行时间线</h3>
+          <span class="panel-tip"></span>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </div>
+    </section>
+
+    <section class="right-col panel-stack">
+      <div class="panel grow-panel">
+        <div class="panel-header-row">
+          <h3>智能体研判模块</h3>
+          <div class="header-actions">
+            <span class="panel-tip">点击查看详细研判过程</span>
+            <button id="showAllAnomalies" class="btn btn-detail" type="button">查看详细</button>
+          </div>
+        </div>
+        <div id="agentInsights" class="insight-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header-row panel-header-tight">
+          <h3>异常案件</h3>
+          <button id="showCaseList" class="btn btn-detail" type="button">查看全部</button>
+        </div>
+        <div id="caseDetails" class="case-details">暂无 Case</div>
+      </div>
+
+      <div id="logPanel" class="panel hidden">
+        <h3>控制台日志</h3>
+        <pre id="logs"></pre>
+      </div>
+    </section>
+  </main>
+
+  <button id="chatLauncher" class="floating-chat-btn" type="button">打开智能助手</button>
+
+  <section id="listModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-list-modal="true"></div>
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div>
+          <h3 id="listModalTitle">详情列表</h3>
+          <div id="listModalMeta" class="muted"></div>
+        </div>
+        <button id="closeListModal" class="icon-btn" type="button">×</button>
+      </div>
+      <div id="listModalBody" class="modal-body"></div>
+    </div>
+  </section>
+
+  <section id="deviceMgmtOverlay" class="device-mgmt-overlay hidden" aria-hidden="true">
+  <div class="device-mgmt-backdrop" data-close-device-mgmt="true"></div>
+
+  <div class="device-mgmt-panel">
+    <div class="device-mgmt-header">
+      <h3>设备管理</h3>
+      <button id="closeDeviceMgmt" class="icon-btn" type="button">×</button>
+    </div>
+
+    <div class="device-mgmt-body">
+      <div class="device-mgmt-section">
+        <div class="device-mgmt-section-header">
+          <h4>设备状态</h4>
+          <button id="scanDevicesBtn" class="btn btn-scan" type="button">扫描设备</button>
+        </div>
+
+        <div id="deviceStatusList" class="device-status-list">
+          <div class="device-mgmt-empty">点击"扫描设备"获取实时状态</div>
+        </div>
+      </div>
+
+      <div class="device-mgmt-section">
+        <h4>采集参数配置</h4>
+
+        <div class="device-params-grid">
+          <label>
+            <span>设备 ID (dev_id)</span>
+            <input id="paramDevId" type="text" class="param-input" placeholder="扫描后选择，默认 usrp-30B1FDE">
+          </label>
+
+          <label>
+            <span>频点 (freq) MHz</span>
+            <input id="paramFreq" type="number" class="param-input" value="2400" step="0.001" min="0.001">
+          </label>
+
+          <label>
+            <span>分析通道 (本地字段，不发送到USRP)</span>
+            <select id="paramChannel" class="param-input">
+              <option value="0">RF-A</option>
+              <option value="1">RF-B</option>
+            </select>
+          </label>
+
+          <label>
+            <span>天线口 (antenna)</span>
+            <select id="paramAntenna" class="param-input">
+              <option value="TX/RX">TX/RX</option>
+              <option value="RX2">RX2</option>
+            </select>
+          </label>
+
+          <label>
+            <span>采样率 (sample_rate) MHz</span>
+            <input id="paramSampleRate" type="number" class="param-input" value="1" step="0.001" min="0.001">
+          </label>
+
+          <label>
+            <span>带宽 (bandwidth) MHz</span>
+            <input id="paramBandwidth" type="number" class="param-input" value="1" step="0.001" min="0.001">
+          </label>
+
+          <label>
+            <span>增益 (gain) dB</span>
+            <input id="paramGain" type="number" class="param-input" value="40" step="0.1" min="0">
+          </label>
+
+          <label>
+            <span>切片时长 (slice_duration) s</span>
+            <input id="paramSliceDuration" type="number" class="param-input" value="1" step="0.01" min="0.01">
+          </label>
+
+          <label>
+            <span>采集时长 (duration) s</span>
+            <input id="paramDuration" type="number" class="param-input" value="3" step="0.1" min="0.1">
+          </label>
+        </div>
+
+        <div class="device-params-actions">
+          <button id="saveDeviceParams" class="btn btn-start" type="button">保存参数</button>
+          <span id="deviceParamsMsg" class="device-params-msg"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  
+  <section id="detailModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalTitle">详情</h3>
+          <div id="modalMeta" class="muted"></div>
+        </div>
+        <button id="closeModal" class="icon-btn" type="button">×</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </section>
+
+  <section id="caseListModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-caselist-modal="true"></div>
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div>
+          <h3 id="caseListModalTitle">所有 Case 列表</h3>
+          <div id="caseListModalMeta" class="muted"></div>
+        </div>
+        <button id="closeCaseListModal" class="icon-btn" type="button">×</button>
+      </div>
+      <div id="caseListModalBody" class="modal-body"></div>
+    </div>
+  </section>
+
+  <section id="caseReviewModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-review-modal="true"></div>
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div>
+          <h3 id="caseReviewModalTitle">Case 复核</h3>
+          <div id="caseReviewModalMeta" class="muted"></div>
+        </div>
+        <button id="closeCaseReviewModal" class="icon-btn" type="button">×</button>
+      </div>
+      <div id="caseReviewModalBody" class="modal-body"></div>
+    </div>
+  </section>
+
+  <script src="/static/js/core.js?v=merged-20260604"></script>
+  <script src="/static/js/renderers.js?v=merged-20260604"></script>
+  <script src="/static/js/modals.js?v=merged-20260604"></script>
+  <script src="/static/js/device_mgmt.js?v=merged-20260604"></script>
+  <script src="/static/js/events.js?v=merged-20260604"></script>
+  <script src="/static/app.js?v=merged-20260604"></script>
+
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</body>
+</html>

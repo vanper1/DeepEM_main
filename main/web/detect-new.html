@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 智能检测</title>
+  <link rel="stylesheet" href="/static/styles.css?v=detect-flow-mhz-20260722">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 智能检测</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/detect">任务列表</a><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-form-grid detect-flow-grid">
+  <section class="deem-panel strong">
+    <div class="deem-panel-title"><h2>新建或选择任务</h2><span class="hint">先确定任务，再选择模板或输入任务指令</span></div>
+    <div class="deem-form-section">
+      <label class="deem-field"><span>选择已有任务：</span><select id="existingTaskPicker" class="deem-input"><option value="">新建智能检测任务</option></select></label>
+      <label class="deem-field"><span>任务名称：</span><input id="taskName" class="deem-input" value="园区电磁环境智能检测"></label>
+      <label class="deem-field"><span>任务地点：</span><input id="taskPlace" class="deem-input" value="中国科学院信息工程研究所园区"></label>
+      <label class="deem-field"><span>操作员：</span><input id="taskOperator" class="deem-input" value="operator"></label>
+      <div id="selectedTaskInfo" class="deem-report-box compact">当前为新建任务。可直接选择模板或输入任务指令。</div>
+    </div>
+  </section>
+
+  <section class="deem-panel">
+    <div class="deem-panel-title"><h2>选择模板或输入任务指令</h2><span class="hint">模板与采集智能体上传模板同步，数据互通</span></div>
+    <div class="deem-form-section">
+      <div class="deem-mode-group">
+        <label class="deem-mode-card"><input type="radio" name="taskMode" value="template" checked><span><strong>模板检测模式</strong><span>从下方共享模板列表选择一个或多个模板</span></span></label>
+        <label class="deem-mode-card"><input type="radio" name="taskMode" value="command"><span><strong>任务指令模式</strong><span>输入任务指令，由采集智能体结合设备能力生成计划</span></span></label>
+      </div>
+
+      <div class="detect-template-toolbar">
+        <label class="deem-btn ghost" for="captureTemplateUpload">上传模板</label>
+        <input id="captureTemplateUpload" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden>
+        <button id="refreshTemplateBtn" class="deem-btn ghost" type="button">刷新模板</button>
+        <span id="templateUploadStatus" class="hint"></span>
+      </div>
+      <div id="templatePane" class="deem-list-card detect-template-list"><div class="deem-list-item">正在读取采集智能体模板……</div></div>
+
+      <div id="commandPane" style="display:none"><label class="deem-field"><span>任务指令：</span><textarea id="taskInstruction" class="deem-textarea" placeholder="例如：对北楼四层机房进行 2400 MHz / 5000 MHz 频谱巡检，并识别异常 Wi-Fi 和蓝牙信号。"></textarea></label></div>
+      <div class="deem-form-actions"><button id="createTaskBtn" class="deem-btn primary" type="button">下一步：获取设备状态与能力</button></div>
+    </div>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=detect-flow-mhz-20260722"></script>
+</body>
+</html>

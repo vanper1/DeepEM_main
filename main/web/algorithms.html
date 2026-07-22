@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepEM 算法管理</title>
+  <link rel="stylesheet" href="/static/styles.css?v=merged-20260604">
+</head>
+<body class="deem-body">
+<div class="deem-app">
+
+  <header class="deem-header">
+    <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 智能电磁检测平台</span></div>
+    <div class="deem-page-title"><h1>DeepEM 算法管理</h1><div class="org">中国科学院信息工程研究所</div></div>
+    <div class="deem-header-actions"><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+  </header>
+  <main class="deem-main">
+
+<section class="deem-workspace">
+  <section class="deem-panel">
+    <div class="deem-panel-title"><h2>树状算法库展示区</h2><span class="hint">点击类别或算法查看详情</span></div>
+    <div class="deem-toolbar"><input class="deem-input" placeholder="搜索算法"><button class="deem-btn">搜索</button><button class="deem-btn ghost">筛选</button><button class="deem-btn ghost">批量操作</button><button id="newCategoryBtn" class="deem-btn">新建类别</button><a class="deem-btn primary" href="/algorithms/new">新增算法</a></div>
+    <div id="algoTree" class="algo-tree"><ul><li data-name="信号识别算法库">信号识别算法库<ul><li data-name="Wi-Fi 指纹识别">Wi-Fi 指纹识别</li><li data-name="蓝牙 Beacon 检测">蓝牙 Beacon 检测</li></ul></li><li data-name="异常研判算法库">异常研判算法库<ul><li data-name="频谱峰值异常检测">频谱峰值异常检测</li><li data-name="基线差分检测">基线差分检测</li></ul></li><li data-name="报告生成算法库">报告生成算法库</li></ul></div>
+  </section>
+  <section class="deem-panel strong">
+    <div class="deem-panel-title"><h2>选定类别/算法的详细信息展示区</h2><a class="deem-btn ghost" href="/home">返回主页面</a></div>
+    <div id="algoDetail"><div class="deem-report-box">请选择左侧树状节点。</div></div>
+  </section>
+</section>
+  </main>
+  <div class="deem-footer-org">中国科学院信息工程研究所</div>
+</div>
+<script src="/static/js/portal.js?v=merged-20260604"></script>
+</body>
+</html>

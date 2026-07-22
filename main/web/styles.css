@@ -1,0 +1,64 @@
+@import url("./styles/base.css");
+@import url("./styles/components.css");
+@import url("./styles/layout.css?v=merged-20260604");
+@import url("./styles/modals.css");
+@import url("./styles/responsive.css");
+@import url("./styles/chat.css?v=merged-20260604");
+@import url("./styles/device_mgmt.css?v=merged-20260604");
+@import url("./styles/db_manager.css?v=merged-20260604");
+@import url("./styles/portal.css?v=20260602-commercial1");
+@import url("./styles/commercial-polish.css?v=20260602-commercial1");
+
+/* Merged frontend compatibility overrides: keep the web.zip wide chat layout after commercial polish. */
+.chat-page-body .chat-shell {
+  width: 100vw !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px 24px !important;
+  box-sizing: border-box !important;
+}
+
+.chat-page-body .chat-shell-split {
+  display: grid !important;
+  grid-template-columns: 320px minmax(0, 1fr) !important;
+  gap: 16px !important;
+}
+
+.chat-page-body .chat-page-panel,
+.chat-page-body .chat-main,
+.chat-page-body .chat-timeline-wrap {
+  min-width: 0 !important;
+}
+
+.chat-page-body .model-settings-drawer {
+  position: fixed !important;
+  top: 72px !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+@media (max-width: 1100px) {
+  .chat-page-body .chat-shell-split {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* Smart detection MHz workflow */
+.detect-flow-grid { grid-template-columns: .95fr 1.25fr; }
+.detect-template-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin: 8px 0 12px; }
+.detect-template-list { max-height: 340px; overflow:auto; }
+.detect-template-item { cursor:pointer; }
+.detect-template-item input { margin-right:8px; }
+.deem-report-box.compact { padding: 10px 12px; line-height: 1.7; }
+.detect-device-layout { grid-template-columns: minmax(620px, 1fr) 320px; }
+.detect-device-list { display:grid; gap:12px; margin-top:12px; max-height: calc(100vh - 280px); overflow:auto; padding-right:4px; }
+.detect-device-card { display:block; border:1px solid rgba(98,166,214,.28); border-radius:14px; padding:14px; background:rgba(255,255,255,.035); cursor:pointer; }
+.detect-device-card.active { border-color:#54c9f4; background:rgba(84,201,244,.08); }
+.detect-device-card input { margin-right:8px; }
+.detect-device-head { display:flex; justify-content:space-between; align-items:center; gap:12px; color:#e9f7ff; }
+.detect-device-head span { border:1px solid rgba(255,255,255,.2); border-radius:999px; padding:3px 9px; font-size:12px; color:#9fe4ff; }
+.detect-device-meta { margin:8px 0; color:#9eb8c7; font-size:12px; }
+.detect-device-range { display:grid; grid-template-columns:100px minmax(0,1fr); gap:8px; padding:4px 0; color:#c4d8e5; font-size:12px; }
+.detect-device-range b { color:#7fb9d8; font-weight:600; }
+@media (max-width: 900px) { .detect-flow-grid, .detect-device-layout { grid-template-columns: 1fr; } }
