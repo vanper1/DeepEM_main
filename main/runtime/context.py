@@ -6,6 +6,7 @@ from threading import RLock
 from typing import Any
 
 from deepem.agent.llm import LLMClient
+from deepem.agent.context_reducer import ReducerSummaryState
 from deepem.agent.prompt_builder import PromptBuilder
 from deepem.agent.profiles import AgentProfile
 from deepem.devices.registry import DeviceRegistry
@@ -53,6 +54,8 @@ class RuntimeContext:
     upload_processor: Any | None = None
     persistence: Any | None = None
     debug_logger: Any | None = None
+    context_summary_cache: dict[str, str] = field(default_factory=dict)
+    reducer_summary_cache: dict[tuple[str, str], ReducerSummaryState] = field(default_factory=dict)
     _task_locks: dict[str, RLock] = field(default_factory=_new_task_locks, repr=False)
 
     def task_lock(self, task_id: str) -> RLock:

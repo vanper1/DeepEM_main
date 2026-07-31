@@ -62,7 +62,10 @@ class UsrpClient:
         return dict(self._request("POST", "/api/usrp/start", json_payload=request) or {})
 
     def stop(self, *, dev_id: str, task_id: str) -> dict[str, Any]:
-        return dict(self._request("POST", f"/api/usrp/{urllib.parse.quote(dev_id, safe='')}/stop", json_payload={"task_id": task_id}) or {})
+        dev = str(dev_id or "").strip()
+        if not dev:
+            raise UsrpApiError(status_code=422, message="dev_id is required")
+        return dict(self._request("POST", f"/api/usrp/{urllib.parse.quote(dev, safe='')}/stop", json_payload={"task_id": task_id}) or {})
 
     def list_tasks(self) -> dict[str, Any]:
         """Return all persisted USRP acquisition tasks and their .npz files."""
@@ -81,12 +84,15 @@ class UsrpClient:
 
     def ws_url(self, dev_id: str) -> str:
         """Return the upstream WebSocket URL for real-time FFT frames."""
+        dev = str(dev_id or "").strip()
+        if not dev:
+            raise UsrpApiError(status_code=422, message="dev_id is required")
         base = self.ws_base_url
         if not base:
             parsed = urllib.parse.urlparse(self.base_url)
             scheme = "wss" if parsed.scheme == "https" else "ws"
             base = urllib.parse.urlunparse((scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", "")).rstrip("/")
-        return f"{base}/api/usrp/{urllib.parse.quote(dev_id, safe='')}/stream"
+        return f"{base}/api/usrp/{urllib.parse.quote(dev, safe='')}/stream"
 
     def find_task_on_devices(self, task_id: str) -> dict[str, Any]:
         """Compatibility helper for tools that only need running-state status.

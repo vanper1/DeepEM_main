@@ -281,6 +281,12 @@ class SafeUsrpRuntime:
     ) -> dict[str, Any]:
         """启动一次 USRP 采集。注意：本方法只启动任务，不读取远端 npz 文件。"""
         self.check_cancelled()
+        task_id = str(task_id or "").strip()
+        dev_id = str(dev_id or "").strip()
+        if not task_id:
+            raise ValueError("task_id is required")
+        if not dev_id:
+            raise ValueError("dev_id is required")
         sample_rate = float(sample_rate or self.default_sample_rate)
         bandwidth = float(bandwidth or self.default_bandwidth)
         gain = float(self.default_gain if gain is None else gain)
@@ -317,6 +323,9 @@ class SafeUsrpRuntime:
 
     def wait_until_idle(self, dev_id: str, *, timeout_sec: float = 90.0, poll_interval_sec: float = 0.5) -> dict[str, Any]:
         self.check_cancelled()
+        dev_id = str(dev_id or "").strip()
+        if not dev_id:
+            raise ValueError("dev_id is required")
         if self.dry_run:
             return {"dev_id": dev_id, "status": "IDLE", "task_id": None}
         deadline = time.monotonic() + float(timeout_sec)
@@ -353,6 +362,12 @@ class SafeUsrpRuntime:
         本方法是当前自主智能体的主入口，不依赖采集端生成的 slice_*.npz。
         """
         self.check_cancelled()
+        task_id = str(task_id or "").strip()
+        dev_id = str(dev_id or "").strip()
+        if not task_id:
+            raise ValueError("task_id is required")
+        if not dev_id:
+            raise ValueError("dev_id is required")
         sample_rate = float(sample_rate or self.default_sample_rate)
         bandwidth = float(bandwidth or self.default_bandwidth)
         gain = float(self.default_gain if gain is None else gain)
@@ -719,23 +734,53 @@ _ALLOWED_BUILTINS = {
     "all": all,
     "any": any,
     "bool": bool,
+    "callable": callable,
     "dict": dict,
     "enumerate": enumerate,
+    "Exception": Exception,
     "float": float,
+    "getattr": getattr,
+    "hasattr": hasattr,
     "int": int,
+    "isinstance": isinstance,
     "len": len,
     "list": list,
     "max": max,
     "min": min,
+    "object": object,
     "range": range,
     "round": round,
+    "set": set,
+    "sorted": sorted,
     "str": str,
     "sum": sum,
+    "tuple": tuple,
+    "TypeError": TypeError,
+    "type": type,
+    "ValueError": ValueError,
     "zip": zip,
 }
 _FORBIDDEN_IMPORTS = {"os", "sys", "subprocess", "socket", "requests", "urllib", "shutil", "pathlib", "builtins", "pickle"}
 _FORBIDDEN_CALLS = {"eval", "exec", "compile", "__import__", "open", "input", "globals", "locals", "vars", "dir"}
 _FORBIDDEN_SDK_ATTRS = {"load_task_iq", "compute_fft_power_db", "task_dir", "_write_mock_task_npz"}
+
+AUTONOMOUS_USRP_SDK_CONTRACT = """
+你只能生成一个 Python 函数：def run_task(ctx):
+可用对象：
+- ctx.task: dict，结构化任务计划。
+- ctx.emit(stage, message, data=None): 向前端输出中间过程。
+- ctx.make_task_id(prefix, **parts): 生成安全 task_id。
+- ctx.make_output_name(room_name, mode): 生成“会议室名称_背景/正常频谱_日期时间.npz”。
+- ctx.usrp.scan_and_get_idle_device(dev_id=None): 扫描并返回 IDLE 设备。
+- ctx.usrp.generate_frequency_list(start_hz, stop_hz, step_hz): 生成频点列表。
+- ctx.usrp.capture_fft_once(task_id, dev_id, freq, sample_rate, bandwidth, gain, slice_duration, duration, antenna, device=None, expected_frames=1): 启动一次采集，并直接从 USRP WebSocket 接收 fft_data，返回 dict；必须通过 capture["power_db_mean"]、capture["frequency_axis_hz"]、capture["fft_frames"]、capture["frame_count"] 取值，禁止写 a, b, c, d = ctx.usrp.capture_fft_once(...)。
+- ctx.usrp.fft_frequency_axis(center_freq, sample_rate, fft_size=1024): 生成 FFT 频率轴。
+- ctx.usrp.save_spectrum_npz(output_name, **arrays): 保存最终汇总 npz，注意这个 npz 是平台基于 WebSocket FFT 生成的结果文件，不是读取采集端 slice_*.npz。
+禁止任何 import、open、requests、subprocess、os、eval、exec。
+禁止调用 load_task_iq、compute_fft_power_db、task_dir 或读取 slice_*.npz。
+不要直接访问 HTTP/WebSocket 原始接口，只能使用 ctx.usrp。
+不要把 power_db_mean、fft_frames、frequency_axis_hz 这类数组对象直接拼进 ctx.emit(...) 的 message，也不要对它们使用 `:.2f` 这类标量格式化；只输出摘要信息，比如 frame_count、峰值、均值或数组长度。
+""".strip()
 
 
 def validate_generated_code(code: str) -> dict[str, Any]:
@@ -748,16 +793,26 @@ def validate_generated_code(code: str) -> dict[str, Any]:
         raise AutonomousUsrpError("生成代码必须且只能定义一个 run_task(ctx) 函数")
     if len(funcs[0].args.args) != 1 or funcs[0].args.args[0].arg != "ctx":
         raise AutonomousUsrpError("run_task 函数签名必须是 run_task(ctx)")
+
+    assigned_names: dict[str, str] = {}
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            names = []
-            if isinstance(node, ast.Import):
-                names = [item.name for item in node.names]
-            elif node.module:
-                names = [node.module]
-            for name in names:
-                if name.split(".")[0] in _FORBIDDEN_IMPORTS:
-                    raise AutonomousUsrpError(f"禁止导入模块：{name}")
+            raise AutonomousUsrpError("禁止 import；请直接使用 ctx、ctx.usrp、json、time 以及安全 SDK。")
+        if isinstance(node, ast.Assign):
+            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Tuple) and _is_capture_fft_call(node.value):
+                raise AutonomousUsrpError("capture_fft_once(...) 返回 dict，禁止按多返回值解包；请使用 result[\"power_db_mean\"] 等方式取值。")
+            value = node.value
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    if _is_capture_fft_call(value):
+                        assigned_names[target.id] = "fft_capture"
+                    elif _looks_like_capture_fft_array(value, assigned_names):
+                        assigned_names[target.id] = "fft_array"
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if _is_capture_fft_call(node.value):
+                assigned_names[node.target.id] = "fft_capture"
+            elif _looks_like_capture_fft_array(node.value, assigned_names):
+                assigned_names[node.target.id] = "fft_array"
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in _FORBIDDEN_CALLS:
                 raise AutonomousUsrpError(f"禁止调用函数：{node.func.id}")
@@ -766,12 +821,65 @@ def validate_generated_code(code: str) -> dict[str, Any]:
                     raise AutonomousUsrpError(f"禁止访问魔术方法：{node.func.attr}")
                 if node.func.attr in _FORBIDDEN_SDK_ATTRS:
                     raise AutonomousUsrpError(f"当前自主采集禁止调用 {node.func.attr}，请直接使用 WebSocket FFT 方法 capture_fft_once")
+                if (
+                    node.func.attr == "emit"
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "ctx"
+                    and len(node.args) >= 2
+                    and _format_expr_uses_array(node.args[1], assigned_names)
+                ):
+                    raise AutonomousUsrpError("禁止将数组对象直接格式化到 ctx.emit(...)；请只输出摘要信息，如 frame_count、峰值或数组长度。")
         if isinstance(node, ast.Attribute):
             if node.attr.startswith("__"):
                 raise AutonomousUsrpError(f"禁止访问魔术属性：{node.attr}")
             if node.attr in _FORBIDDEN_SDK_ATTRS:
                 raise AutonomousUsrpError(f"当前自主采集禁止访问 {node.attr}，请直接使用 WebSocket FFT 方法 capture_fft_once")
     return {"status": "passed", "function": "run_task", "node_count": sum(1 for _ in ast.walk(tree)), "data_source": "usrp_websocket_fft"}
+
+
+def _looks_like_capture_fft_power(value: ast.AST | None) -> bool:
+    return _looks_like_capture_fft_array(value, {})
+
+
+def _looks_like_capture_fft_array(value: ast.AST | None, assigned_names: dict[str, str]) -> bool:
+    if not isinstance(value, ast.Subscript):
+        return False
+    if _is_capture_fft_call(value.value):
+        pass
+    elif isinstance(value.value, ast.Name) and assigned_names.get(value.value.id) == "fft_capture":
+        pass
+    else:
+        return False
+    slice_node = value.slice
+    if isinstance(slice_node, ast.Constant):
+        return slice_node.value in {"power_db_mean", "fft_frames", "frequency_axis_hz"}
+    return False
+
+
+def _is_capture_fft_call(value: ast.AST | None) -> bool:
+    if not isinstance(value, ast.Call):
+        return False
+    if not isinstance(value.func, ast.Attribute):
+        return False
+    return value.func.attr == "capture_fft_once"
+
+
+def _format_expr_uses_array(expr: ast.AST, assigned_names: dict[str, str]) -> bool:
+    for node in ast.walk(expr):
+        if isinstance(node, ast.FormattedValue):
+            if _expr_is_array_like(node.value, assigned_names):
+                if node.format_spec is not None:
+                    raise AutonomousUsrpError("禁止将 FFT 数组按标量格式化；请只输出 frame_count、数组长度、峰值或均值摘要。")
+                return True
+        if isinstance(node, ast.Name) and assigned_names.get(node.id) == "fft_array":
+            return True
+    return False
+
+
+def _expr_is_array_like(expr: ast.AST, assigned_names: dict[str, str]) -> bool:
+    if isinstance(expr, ast.Name):
+        return assigned_names.get(expr.id) == "fft_array"
+    return _looks_like_capture_fft_power(expr)
 
 
 def execute_generated_code(code: str, task_plan: dict[str, Any], context: ToolContext, *, dry_run: bool = False) -> dict[str, Any]:
@@ -830,22 +938,6 @@ def generate_code_with_llm(task_description: str, context: ToolContext, *, task_
     store = MarkdownKnowledgeStore()
     chunks = store.search(task_description + " USRP WebSocket stream fft_data start devices configure 实时 FFT", top_k=8)
     knowledge = "\n\n".join(f"### {item.title}\n{item.text[:2200]}" for item in chunks)
-    sdk_contract = """
-你只能生成一个 Python 函数：def run_task(ctx):
-可用对象：
-- ctx.task: dict，结构化任务计划。
-- ctx.emit(stage, message, data=None): 向前端输出中间过程。
-- ctx.make_task_id(prefix, **parts): 生成安全 task_id。
-- ctx.make_output_name(room_name, mode): 生成“会议室名称_背景/正常频谱_日期时间.npz”。
-- ctx.usrp.scan_and_get_idle_device(dev_id=None): 扫描并返回 IDLE 设备。
-- ctx.usrp.generate_frequency_list(start_hz, stop_hz, step_hz): 生成频点列表。
-- ctx.usrp.capture_fft_once(task_id, dev_id, freq, sample_rate, bandwidth, gain, slice_duration, duration, antenna, device=None, expected_frames=1): 启动一次采集，并直接从 USRP WebSocket 接收 fft_data，返回 power_db_mean、frequency_axis_hz、fft_frames、frame_count。
-- ctx.usrp.fft_frequency_axis(center_freq, sample_rate, fft_size=1024): 生成 FFT 频率轴。
-- ctx.usrp.save_spectrum_npz(output_name, **arrays): 保存最终汇总 npz，注意这个 npz 是平台基于 WebSocket FFT 生成的结果文件，不是读取采集端 slice_*.npz。
-禁止 import、open、requests、subprocess、os、eval、exec。
-禁止调用 load_task_iq、compute_fft_power_db、task_dir 或读取 slice_*.npz。
-不要直接访问 HTTP/WebSocket 原始接口，只能使用 ctx.usrp。
-""".strip()
     prompt = f"""
 你是 DeepEM 的代码生成型 USRP 频谱采集智能体。请根据用户任务、结构化计划和 USRP API 知识，生成可执行的 run_task(ctx) 函数。
 
@@ -859,14 +951,15 @@ USRP API 知识片段：
 {knowledge}
 
 安全 SDK 契约：
-{sdk_contract}
+{AUTONOMOUS_USRP_SDK_CONTRACT}
 
 输出要求：
 1. 只输出 Python 代码，不要解释。
 2. 只定义 def run_task(ctx): 一个函数。
 3. 对多频点、多次重复采集要循环执行 capture_fft_once，并使用其返回的 power_db_mean 做平均。
 4. 绝对不要读取 slice_*.npz，不要调用 load_task_iq，不要自己计算 IQ FFT；直接使用 USRP 平台 WebSocket 返回的 fft_data。
-5. 保存最终汇总结果 npz，并 return dict，至少包含 status、output_file、freq_count、repeat_count、data_source。
+5. 不要把 ndarray 或其他数组对象直接格式化到 ctx.emit(...) 的字符串中。
+6. 保存最终汇总结果 npz，并 return dict，至少包含 status、output_file、freq_count、repeat_count、data_source。
 """.strip()
     code = ""
     llm_error = ""

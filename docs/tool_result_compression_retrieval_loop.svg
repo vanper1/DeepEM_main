@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Tool Result Compression and Detail Retrieval Loop</title>
+  <desc id="desc">A clean academic flow diagram with a top compression path and a lower on-demand retrieval path.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrowAccent" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#0f766e"/>
+    </marker>
+    <style>
+      .bg { fill: #fff; }
+      .title { font: 700 28px "Segoe UI", Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 15px "Segoe UI", Arial, sans-serif; fill: #475569; }
+      .section { font: 700 14px "Segoe UI", Arial, sans-serif; fill: #475569; letter-spacing: .2px; }
+      .box { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; rx: 8; }
+      .boxBlue { fill: #eff6ff; stroke: #3b82f6; stroke-width: 1.7; rx: 8; }
+      .boxGreen { fill: #ecfdf5; stroke: #0f766e; stroke-width: 1.7; rx: 8; }
+      .boxOrange { fill: #fff7ed; stroke: #fb923c; stroke-width: 1.5; rx: 8; }
+      .store { fill: #f8fafc; stroke: #64748b; stroke-width: 1.5; }
+      .label { font: 700 17px "Segoe UI", Arial, sans-serif; fill: #111827; }
+      .small { font: 400 13px "Segoe UI", Arial, sans-serif; fill: #475569; }
+      .mono { font: 400 12.5px Consolas, "Courier New", monospace; fill: #334155; }
+      .accentMono { font: 700 12.5px Consolas, "Courier New", monospace; fill: #0f766e; }
+      .line { fill: none; stroke: #334155; stroke-width: 1.8; marker-end: url(#arrow); }
+      .lineAccent { fill: none; stroke: #0f766e; stroke-width: 2.1; marker-end: url(#arrowAccent); }
+      .lineSoft { fill: none; stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+      .pill { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.2; rx: 8; }
+      .pillText { font: 400 12.5px "Segoe UI", Arial, sans-serif; fill: #475569; }
+      .pillTitle { font: 700 14px "Segoe UI", Arial, sans-serif; fill: #1e293b; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1280" height="720"/>
+
+  <text class="title" x="640" y="54" text-anchor="middle">可追溯的工具结果压缩与字段回捞闭环</text>
+  <text class="subtitle" x="640" y="82" text-anchor="middle">原始结果持久化，压缩结果进入上下文，必要时按路径回捞。</text>
+
+  <text class="section" x="72" y="126">正常工具调用链路</text>
+
+  <!-- Top path: compression -->
+  <rect class="box" x="70" y="155" width="210" height="118"/>
+  <text class="label" x="175" y="190" text-anchor="middle">完整工具结果</text>
+  <text class="small" x="175" y="216" text-anchor="middle">Original ToolResult</text>
+  <text class="mono" x="103" y="248">large payloads</text>
+
+  <path class="store" d="M355 158 C355 139 555 139 555 158 L555 263 C555 282 355 282 355 263 Z"/>
+  <ellipse class="store" cx="455" cy="158" rx="100" ry="19"/>
+  <text class="label" x="455" y="194" text-anchor="middle">原始结果持久化</text>
+  <text class="small" x="455" y="220" text-anchor="middle">ToolCall.result</text>
+  <text class="mono" x="401" y="252">raw result kept</text>
+
+  <rect class="boxBlue" x="635" y="155" width="220" height="118"/>
+  <text class="label" x="745" y="190" text-anchor="middle">ToolResultCompressor</text>
+  <text class="small" x="745" y="216" text-anchor="middle">定制压缩</text>
+  <text class="mono" x="684" y="248">key facts only</text>
+
+  <rect class="boxBlue" x="935" y="155" width="220" height="118"/>
+  <text class="label" x="1045" y="190" text-anchor="middle">compact result</text>
+  <text class="small" x="1045" y="216" text-anchor="middle">进入下一轮 LLM</text>
+  <text class="mono" x="990" y="248">summary + refs</text>
+
+  <rect class="box" x="935" y="344" width="220" height="88"/>
+  <text class="label" x="1045" y="378" text-anchor="middle">LLM Context</text>
+  <text class="small" x="1045" y="405" text-anchor="middle">只接收 compact result</text>
+
+  <path class="line" d="M280 214 L346 214"/>
+  <text class="small" x="313" y="202" text-anchor="middle">保存</text>
+  <path class="line" d="M555 214 L626 214"/>
+  <text class="small" x="591" y="202" text-anchor="middle">压缩</text>
+  <path class="line" d="M855 214 L926 214"/>
+  <text class="small" x="891" y="202" text-anchor="middle">发送</text>
+  <path class="lineSoft" d="M1045 273 L1045 335"/>
+
+  <!-- Lower path: retrieval -->
+  <text class="section" x="72" y="355">按需字段回捞链路</text>
+
+  <rect class="boxOrange" x="690" y="344" width="180" height="88"/>
+  <text class="label" x="780" y="379" text-anchor="middle">信息不足</text>
+  <text class="small" x="780" y="405" text-anchor="middle">触发回捞</text>
+
+  <rect class="boxGreen" x="390" y="344" width="220" height="118"/>
+  <text class="label" x="500" y="379" text-anchor="middle">回捞工具</text>
+  <text class="small" x="500" y="405" text-anchor="middle">retrieve_tool_result_detail</text>
+  <text class="accentMono" x="423" y="437">tool_result_id + path</text>
+
+  <rect class="boxGreen" x="70" y="344" width="210" height="118"/>
+  <text class="label" x="175" y="379" text-anchor="middle">目标字段</text>
+  <text class="small" x="175" y="405" text-anchor="middle">Retrieved value</text>
+  <text class="mono" x="118" y="437">target field</text>
+
+  <rect class="boxBlue" x="390" y="540" width="220" height="92"/>
+  <text class="label" x="500" y="574" text-anchor="middle">二次压缩</text>
+  <text class="small" x="500" y="599" text-anchor="middle">回捞结果继续受控</text>
+  <text class="mono" x="431" y="622">value -> preview</text>
+
+  <!-- Retrieval arrows with no crossings -->
+  <path class="lineAccent" d="M935 388 L879 388"/>
+  <text class="small" x="907" y="376" text-anchor="middle">需要细节</text>
+  <path class="lineAccent" d="M690 388 L619 388"/>
+  <path class="lineAccent" d="M390 403 L289 403"/>
+  <text class="small" x="340" y="391" text-anchor="middle">读取字段</text>
+
+  <path class="lineAccent" d="M500 344 C500 314 473 303 455 287"/>
+  <text class="small" x="525" y="315">查原始结果</text>
+
+  <path class="lineAccent" d="M175 462 C175 548 310 586 381 586"/>
+  <text class="small" x="245" y="557" text-anchor="middle">返回</text>
+
+  <path class="lineAccent" d="M610 586 C800 586 1022 530 1042 441"/>
+  <text class="small" x="832" y="610" text-anchor="middle">preview 回到上下文</text>
+
+  <!-- Minimal call signature -->
+  <rect class="pill" x="680" y="524" width="250" height="58"/>
+  <text class="pillTitle" x="805" y="548" text-anchor="middle">调用参数</text>
+  <text class="mono" x="714" y="572">{ tool_result_id, path, max_chars }</text>
+
+  <!-- Bottom effects -->
+  <rect class="pill" x="70" y="665" width="1140" height="34"/>
+  <text class="pillTitle" x="106" y="687">效果：</text>
+  <text class="pillText" x="160" y="687">原始结果保留</text>
+  <text class="pillText" x="322" y="687">上下文变小</text>
+  <text class="pillText" x="477" y="687">需要时回捞</text>
+  <text class="pillText" x="638" y="687">回捞后仍压缩</text>
+  <text class="pillText" x="823" y="687">适合大结果工具</text>
+</svg>

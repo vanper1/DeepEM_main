@@ -20,6 +20,7 @@ from deepem.protocol import (
     utc_now,
 )
 from deepem.runtime.engine import RunEngine
+from deepem.runtime.chat_mode import ChatMode
 from deepem.runtime.projector import EventProjector
 from deepem.state.repositories import ChatMessageRepo, ConversationRepo, EventRepo, StateRepo, TaskRepo
 
@@ -164,6 +165,7 @@ class ChatService:
         event_handler: Callable[[str, dict[str, Any]], None] | None = None,
         nl2sql_options: NL2SQLSessionConfig | None = None,
         llm_options: Mapping[str, Any] | None = None,
+        chat_mode: ChatMode | str = ChatMode.WORKSPACE,
         persist_assistant_message: bool = True,
         cancel_checker: Callable[[], bool] | None = None,
     ) -> ChatMessage | None:
@@ -174,6 +176,7 @@ class ChatService:
             event_handler=event_handler,
             nl2sql_options=nl2sql_options or NL2SQLSessionConfig(),
             llm_options=llm_options,
+            chat_mode=chat_mode,
             persist_assistant_message=persist_assistant_message,
             cancel_checker=cancel_checker,
         )

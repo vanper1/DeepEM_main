@@ -13,6 +13,7 @@ from deepem.tools.autonomous_usrp import (
 )
 from deepem.tools.registry import ToolRegistry
 from deepem.tools.sql_tool import build_query_local_database_tool
+from deepem.tools.tool_result_detail import build_retrieve_tool_result_detail_tool
 
 
 def _serialize_state(state) -> dict[str, object]:
@@ -303,6 +304,7 @@ def register_builtin_tools(registry: ToolRegistry) -> ToolRegistry:
     registry.register(ToolDefinition(name="record_operator_feedback", description="将聊天反馈转换为正式的操作员反馈事件。", input_schema={"type": "object", "properties": {"signal_id": {"type": "string"}, "verdict": {"type": "string"}, "note": {"type": "string"}}, "required": ["signal_id", "verdict"]}, handler=_record_operator_feedback))
     registry.register(build_query_local_database_tool())
     registry.register(build_query_uploaded_documents_tool())
+    registry.register(build_retrieve_tool_result_detail_tool())
     registry.register(build_retrieve_usrp_api_knowledge_tool())
     registry.register(build_generate_usrp_task_code_tool())
     registry.register(build_execute_usrp_task_code_tool())

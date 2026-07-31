@@ -32,6 +32,23 @@ class InMemoryDocumentIndex:
                 return dict(item)
         return None
 
+    def find_file_records_by_name(self, file_name: str) -> list[dict[str, Any]]:
+        target = file_name.strip().lower()
+        if not target:
+            return []
+        records = []
+        seen_asset_ids: set[str] = set()
+        for item in self._docs:
+            asset_id = str(item.get("asset_id") or "")
+            if (
+                item.get("record_type") == "file"
+                and str(item.get("file_name") or "").strip().lower() == target
+                and asset_id not in seen_asset_ids
+            ):
+                records.append(dict(item))
+                seen_asset_ids.add(asset_id)
+        return records
+
     def search(
         self,
         *,
@@ -124,6 +141,36 @@ class ElasticsearchDocumentIndex:
         payload = dict(hits[0].get("_source") or {})
         payload["score"] = float(hits[0].get("_score") or 0.0)
         return payload
+
+    def find_file_records_by_name(self, file_name: str) -> list[dict[str, Any]]:
+        self._ensure_index()
+        assert self.client is not None
+        target = file_name.strip()
+        if not target:
+            return []
+        response = self.client.search(
+            index=self.index_name,
+            size=20,
+            query={
+                "bool": {
+                    "filter": [
+                        {"term": {"file_name.keyword": target}},
+                        {"term": {"record_type": "file"}},
+                    ]
+                }
+            },
+        )
+        records: list[dict[str, Any]] = []
+        seen_asset_ids: set[str] = set()
+        for hit in response.get("hits", {}).get("hits", []):
+            payload = dict(hit.get("_source") or {})
+            asset_id = str(payload.get("asset_id") or "")
+            if asset_id in seen_asset_ids:
+                continue
+            payload["score"] = float(hit.get("_score") or 0.0)
+            records.append(payload)
+            seen_asset_ids.add(asset_id)
+        return records
 
     def search(
         self,

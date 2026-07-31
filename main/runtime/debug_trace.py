@@ -9,6 +9,8 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from deepem.runtime.chat_mode import visible_llm_options
+
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -89,41 +91,64 @@ class DebugTraceLogger:
         return repr(value)
 
     def _normalize_record(self, *, stage: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        include_sensitive = os.getenv("DEEPEM_DEBUG_INCLUDE_SENSITIVE") == "1"
         if stage == "prompt_built":
+            messages = payload.get("assembled_messages") or payload.get("base_messages") or []
+            if not include_sensitive:
+                messages = [_message_diagnostics(message) for message in messages]
             return {
                 "stage": "llm_prompt",
                 "payload": {
-                    "messages": payload.get("assembled_messages") or payload.get("base_messages") or [],
+                    "messages": messages,
+                    "compression_mode": payload.get("compression_mode"),
+                    "context_retry_attempt": payload.get("context_retry_attempt"),
+                    "context_retry_reason": payload.get("context_retry_reason"),
+                    "context_budget": payload.get("context_budget"),
+                    "normal_context_budget": payload.get("normal_context_budget"),
+                    "aggressive_context_budget": payload.get("aggressive_context_budget"),
+                    "context_compression": payload.get("context_compression"),
+                    "context_reduction": payload.get("context_reduction"),
+                    "tool_transcript_compression": payload.get("tool_transcript_compression"),
+                    "prompt_composition": payload.get("prompt_composition"),
                 },
             }
         if stage == "llm_response":
+            content = payload.get("content")
+            tool_calls = payload.get("tool_calls") or []
             return {
                 "stage": "llm_output",
                 "payload": {
                     "step_index": payload.get("step_index"),
-                    "reasoning": payload.get("reasoning"),
-                    "content": payload.get("content"),
-                    "tool_calls": payload.get("tool_calls") or [],
+                    "reasoning": payload.get("reasoning") if include_sensitive else None,
+                    "content": content if include_sensitive else None,
+                    "content_chars": _content_char_count(content),
+                    "tool_call_count": len(tool_calls),
+                    "tool_calls": tool_calls if include_sensitive else [],
                 },
             }
         if stage == "tool_call_started":
+            arguments = payload.get("arguments") or _extract_tool_input(payload.get("tool_call"))
             return {
                 "stage": "tool_input",
                 "payload": {
                     "invocation_id": payload.get("invocation_id"),
                     "tool_name": payload.get("tool_name") or _extract_tool_name(payload.get("tool_call")),
-                    "arguments": payload.get("arguments") or _extract_tool_input(payload.get("tool_call")),
+                    "arguments": arguments if include_sensitive else None,
+                    "argument_keys": sorted(arguments) if isinstance(arguments, dict) else [],
                 },
             }
         if stage == "tool_call_outcome":
+            data = _extract_result_field(payload.get("result"), "data")
             return {
                 "stage": "tool_output",
                 "payload": {
                     "invocation_id": payload.get("invocation_id"),
                     "tool_name": payload.get("tool_name"),
                     "status": _extract_result_field(payload.get("result"), "status"),
-                    "data": _extract_result_field(payload.get("result"), "data"),
-                    "error": _extract_result_field(payload.get("result"), "error"),
+                    "data": data if include_sensitive else None,
+                    "data_keys": sorted(data) if isinstance(data, dict) else [],
+                    "error": _extract_result_field(payload.get("result"), "error") if include_sensitive else None,
+                    "has_error": bool(_extract_result_field(payload.get("result"), "error")),
                 },
             }
         if stage == "tool_call_exception":
@@ -134,7 +159,25 @@ class DebugTraceLogger:
                     "tool_name": payload.get("tool_name"),
                     "status": "error",
                     "data": None,
-                    "error": payload.get("error"),
+                    "error": payload.get("error") if include_sensitive else None,
+                    "has_error": True,
+                },
+            }
+        if stage in {
+            "empty_response_repair_scheduled",
+            "empty_response_repair_succeeded",
+            "empty_response_after_repair",
+        }:
+            return {"stage": stage, "payload": payload}
+        if stage == "execution_policy":
+            return {
+                "stage": stage,
+                "payload": {
+                    "chat_mode": payload.get("chat_mode"),
+                    "workspace_injected": payload.get("workspace_injected"),
+                    "available_tool_count": payload.get("available_tool_count"),
+                    "tool_count": payload.get("tool_count"),
+                    "effective_llm_options": visible_llm_options(payload.get("effective_llm_options")),
                 },
             }
         return None
@@ -162,3 +205,24 @@ def _extract_result_field(result: Any, field_name: str) -> Any:
     if isinstance(result, dict):
         return result.get(field_name)
     return getattr(result, field_name, None)
+
+
+def _content_char_count(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, list):
+        return sum(_content_char_count(item.get("text") if isinstance(item, dict) else item) for item in value)
+    return len(str(value))
+
+
+def _message_diagnostics(message: Any) -> dict[str, Any]:
+    if not isinstance(message, dict):
+        return {"role": None, "content_chars": _content_char_count(message), "tool_call_count": 0}
+    tool_calls = message.get("tool_calls") or []
+    return {
+        "role": message.get("role"),
+        "content_chars": _content_char_count(message.get("content")),
+        "tool_call_count": len(tool_calls),
+    }

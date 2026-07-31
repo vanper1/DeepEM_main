@@ -40,6 +40,46 @@ class LLMCancelledError(RuntimeError):
     pass
 
 
+def _body_value(body: Any, key: str) -> Any:
+    if isinstance(body, dict):
+        return body.get(key)
+    return getattr(body, key, None)
+
+
+def is_context_length_error(exc: BaseException) -> bool:
+    body = getattr(exc, "body", None)
+    body_param = _body_value(body, "param")
+    body_message = _body_value(body, "message")
+    status_code = getattr(exc, "status_code", None)
+    text = " ".join(
+        str(item)
+        for item in (
+            exc.__class__.__name__,
+            getattr(exc, "code", ""),
+            status_code or "",
+            body_param or "",
+            body_message or "",
+            str(exc),
+        )
+        if item is not None
+    ).lower()
+    if not text:
+        return False
+    markers = (
+        "maximum context length",
+        "max_model_len",
+        "prompt contains",
+        "reduce the length",
+        "too many tokens",
+    )
+    has_context_marker = any(marker in text for marker in markers)
+    has_input_token_marker = "input tokens" in text and ("prompt" in text or "maximum" in text or "context" in text)
+    status_matches = status_code is None or str(status_code) == "400"
+    if not status_matches:
+        return False
+    return has_context_marker or (str(body_param or "") == "input_tokens" and has_input_token_marker)
+
+
 class LLMClient(Protocol):
     def complete(
         self,
@@ -82,7 +122,7 @@ class OpenAICompatibleLLMClient:
             "model": self.settings.model,
             "messages": messages,
             "temperature": self._float_option(options, "temperature", temperature),
-            "stream": True,
+            "stream": self._optional_bool_option(options, "stream") if "stream" in options else True,
         }
 
         self._apply_generation_options(payload, options)
@@ -108,6 +148,9 @@ class OpenAICompatibleLLMClient:
             payload["tool_choice"] = "auto"
 
         response = self.client.chat.completions.create(**payload)
+        if payload.get("stream") is False:
+            return self._response_from_non_stream(response)
+
         content_chunks: list[str] = []
         reasoning_chunks: list[str] = []
         raw_chunks: list[dict[str, Any]] = []
@@ -201,6 +244,32 @@ class OpenAICompatibleLLMClient:
             raw=raw,
         )
 
+    def _response_from_non_stream(self, response: Any) -> LLMResponse:
+        raw = response.model_dump(mode="json") if hasattr(response, "model_dump") else {}
+        choices = getattr(response, "choices", None) or raw.get("choices") or []
+        if not choices:
+            return LLMResponse(content="", raw=raw)
+        choice = choices[0]
+        message = getattr(choice, "message", None)
+        if isinstance(choice, dict):
+            message = choice.get("message", message)
+        raw_message = {}
+        if raw.get("choices") and isinstance(raw["choices"][0], dict):
+            raw_message = raw["choices"][0].get("message") or {}
+        content = self._strip_think_output(self._normalize_content(getattr(message, "content", None)))
+        if isinstance(message, dict):
+            content = self._strip_think_output(self._normalize_content(message.get("content")))
+        reasoning = self._extract_reasoning(message=message, raw=raw)
+        tool_calls = self._extract_structured_tool_calls(message)
+        if not tool_calls and isinstance(raw_message, dict):
+            tool_calls = self._extract_structured_tool_calls(raw_message)
+        if not tool_calls and content:
+            parsed_tool_calls, cleaned_content = self._extract_tool_calls_from_content(content)
+            if parsed_tool_calls:
+                tool_calls = parsed_tool_calls
+                content = cleaned_content.strip()
+        return LLMResponse(content=content, reasoning=reasoning, tool_calls=tool_calls, raw=raw)
+
     @staticmethod
     def _close_stream(response: Any) -> None:
         close = getattr(response, "close", None)
@@ -255,7 +324,11 @@ class OpenAICompatibleLLMClient:
                 chat_template_kwargs["preserve_thinking"] = preserve_thinking
 
             reasoning_effort = options.get("reasoning_effort")
-            if reasoning_effort and reasoning_effort in ("low", "medium", "high"):
+            if (
+                reasoning_effort
+                and reasoning_effort in ("low", "medium", "high")
+                and not self._is_maas_qwen36_a3b()
+            ):
                 chat_template_kwargs["reasoning_effort"] = reasoning_effort
 
             extra_body["chat_template_kwargs"] = chat_template_kwargs
@@ -395,20 +468,22 @@ class OpenAICompatibleLLMClient:
 
     def _extract_structured_tool_calls(self, message: Any) -> list[LLMToolCall]:
         tool_calls: list[LLMToolCall] = []
-        for item in getattr(message, "tool_calls", None) or []:
-            raw_arguments = item.function.arguments or "{}"
+        raw_items = message.get("tool_calls") if isinstance(message, dict) else getattr(message, "tool_calls", None)
+        for item in raw_items or []:
+            function = item.get("function") if isinstance(item, dict) else getattr(item, "function", None)
+            raw_arguments = (function.get("arguments") if isinstance(function, dict) else getattr(function, "arguments", None)) or "{}"
             try:
                 arguments = json.loads(raw_arguments)
             except json.JSONDecodeError:
                 arguments = {"raw_arguments": raw_arguments}
             tool_calls.append(
                 LLMToolCall(
-                    id=item.id,
-                    name=item.function.name,
-                    arguments=arguments,
+                    id=str(item.get("id") if isinstance(item, dict) else getattr(item, "id", "")),
+                    name=str(function.get("name") if isinstance(function, dict) else getattr(function, "name", "")),
+                    arguments=arguments if isinstance(arguments, dict) else {"raw_arguments": arguments},
                 )
             )
-        return tool_calls
+        return [item for item in tool_calls if item.name]
 
     def _extract_tool_calls_from_content(self, content: str) -> tuple[list[LLMToolCall], str]:
         tool_calls: list[LLMToolCall] = []
@@ -476,6 +551,15 @@ class OpenAICompatibleLLMClient:
         if not model_name:
             return False
         return "qwen" in model_name.lower()
+
+    def _is_maas_qwen36_a3b(self) -> bool:
+        return (
+            (self.settings.model or "").lower() == "qwen3.6-35b-a3b"
+            and any(
+                domain in (self.settings.base_url or "").lower()
+                for domain in ("maas.aliyuncs.com", "dashscope.aliyuncs.com")
+            )
+        )
 
     @staticmethod
     def _normalize_content(content: Any) -> str:
