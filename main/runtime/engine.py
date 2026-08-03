@@ -6,7 +6,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from deepem.agent.llm import LLMCancelledError
+from deepem.agent.llm import LLMCancelledError, is_context_length_error
+from deepem.agent.context_budget import ContextBudgetEstimator
+from deepem.agent.context_compressor import ContextCompressionOptions, ConversationContextCompressor
 from deepem.agent.tool_result_compressor import ToolResultCompressor
 from deepem.agent.profiles import GENERAL_QA_AGENT, PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
 from deepem.nl2sql_config import NL2SQLSessionConfig
@@ -279,14 +281,20 @@ class RunEngine:
                         return
 
 
-                response = self.context.llm_client.complete(
-                    messages=messages,
-                    tools=tool_specs,
-                    temperature=profile.temperature,
-                    generation_options=llm_options,
-                    stream_handler=llm_stream_handler,
-                    cancel_checker=cancel_checker,
-                )
+                try:
+                    response = self.context.llm_client.complete(
+                        messages=messages, tools=tool_specs, temperature=profile.temperature,
+                        generation_options=llm_options, stream_handler=llm_stream_handler, cancel_checker=cancel_checker,
+                    )
+                except Exception as exc:
+                    if llm_stream_state["content_started"] or not is_context_length_error(exc):
+                        raise
+                    retry_messages = messages[:1] + messages[-4:]
+                    self._emit(event_handler, "context_retry", {"run_id": run.id, "reason": "context_length_exceeded", "attempt": 1})
+                    response = self.context.llm_client.complete(
+                        messages=retry_messages, tools=tool_specs, temperature=profile.temperature,
+                        generation_options=llm_options, stream_handler=llm_stream_handler, cancel_checker=cancel_checker,
+                    )
                 self._debug_log(
                     run_id=run.id,
                     stage="llm_response",
@@ -703,7 +711,8 @@ class RunEngine:
             return self._build_general_messages(profile=profile, trigger_message=trigger_message, conversation_id=conversation_id)
         state = self._session_scoped_state(self.context.state_repo.get(task.id), conversation_id)
         cases = [item for item in self.context.case_repo.list_by_task(task.id) if item.conversation_id == conversation_id]
-        recent_messages = self.context.chat_repo.list_by_conversation(conversation_id, limit=8)
+        all_messages = self.context.chat_repo.list_by_conversation(conversation_id)
+        recent_messages = all_messages[-8:]
         recent_events = [item for item in self.context.event_repo.list_by_task(task.id) if item.conversation_id == conversation_id][-8:]
         recent_parts = [item for item in self.context.part_repo.list_recent_by_task(task.id) if item.conversation_id == conversation_id][-8:]
         base_messages = self.context.prompt_builder.build(
@@ -725,6 +734,22 @@ class RunEngine:
         if live_user_message is not None:
             assembled.append(live_user_message)
         assembled.extend(transcript_messages)
+        budget = ContextBudgetEstimator().estimate(assembled)
+        summary = ConversationContextCompressor().build_summary_message(all_messages)
+        if budget["status"] == "danger":
+            recent_messages = all_messages[-4:]
+            base_messages = self.context.prompt_builder.build(
+                profile=profile, task=task, run=run, trigger_event=trigger_event, trigger_message=trigger_message,
+                state=state, cases=cases, knowledge_base=self.context.knowledge_base, recent_events=recent_events,
+                recent_parts=recent_parts, recent_messages=recent_messages, nl2sql_options=nl2sql_options or NL2SQLSessionConfig(),
+            )
+            assembled = [*base_messages]
+            if live_user_message is not None:
+                assembled.append(live_user_message)
+            assembled.extend(transcript_messages)
+            summary = ConversationContextCompressor(ContextCompressionOptions(keep_recent_messages=4)).build_summary_message(all_messages)
+        if summary is not None and assembled:
+            assembled.insert(1, summary)
         self._debug_log(
             run_id=run.id,
             stage="prompt_built",

@@ -40,6 +40,13 @@ class LLMCancelledError(RuntimeError):
     pass
 
 
+def is_context_length_error(exc: BaseException) -> bool:
+    text = " ".join(
+        str(item) for item in (exc.__class__.__name__, getattr(exc, "code", ""), getattr(exc, "status_code", ""), str(exc))
+    ).lower()
+    return any(marker in text for marker in ("maximum context length", "max_model_len", "too many tokens", "prompt contains", "reduce the length"))
+
+
 class LLMClient(Protocol):
     def complete(
         self,
