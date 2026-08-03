@@ -14,6 +14,7 @@ GENERAL_HISTORY_LIMIT = 12
 GENERAL_HISTORY_TOTAL_CHARS = 8000
 GENERAL_HISTORY_PER_MESSAGE_CHARS = 2000
 
+
 GENERAL_LLM_OVERRIDES: dict[str, Any] = {
     "enable_thinking": False,
     "preserve_thinking": False,
@@ -86,15 +87,14 @@ def build_execution_policy(
     history_message_count: int = 0,
 ) -> ExecutionPolicy:
     mode = ChatMode(chat_mode)
-    is_workspace = mode is ChatMode.WORKSPACE
     return ExecutionPolicy(
         chat_mode=mode,
-        workspace_injected=is_workspace,
+        workspace_injected=mode is ChatMode.WORKSPACE,
         available_tool_count=available_tool_count,
         effective_llm_options=visible_llm_options(effective_options),
-        workspace_snapshot_injected=is_workspace,
-        tool_transcript_included=is_workspace,
-        retrieval_context_included=is_workspace,
+        workspace_snapshot_injected=mode is ChatMode.WORKSPACE,
+        tool_transcript_included=mode is ChatMode.WORKSPACE,
+        retrieval_context_included=mode is ChatMode.WORKSPACE,
         history_message_count=history_message_count,
     )
 
@@ -106,6 +106,7 @@ def project_general_history(
     total_chars: int = GENERAL_HISTORY_TOTAL_CHARS,
     per_message_chars: int = GENERAL_HISTORY_PER_MESSAGE_CHARS,
 ) -> list[dict[str, str]]:
+    """Project shared conversation history into compact user/assistant text."""
     projected: list[dict[str, str]] = []
     for message in messages:
         role = getattr(message, "role", None)
@@ -113,16 +114,17 @@ def project_general_history(
         if role_value not in {"operator", "assistant", "user"}:
             continue
         metadata = dict(getattr(message, "metadata", None) or {})
-        if metadata.get("synthetic_summary") or metadata.get("synthetic_context_summary") or metadata.get("is_synthetic"):
+        if (
+            metadata.get("synthetic_summary")
+            or metadata.get("synthetic_context_summary")
+            or metadata.get("is_synthetic")
+            or metadata.get("message_type") in {"summary", "tool"}
+        ):
             continue
         content = str(getattr(message, "content", None) or "").strip()
-        if content:
-            projected.append(
-                {
-                    "role": "user" if role_value in {"operator", "user"} else "assistant",
-                    "content": content[: max(0, per_message_chars)],
-                }
-            )
+        if not content:
+            continue
+        projected.append({"role": "user" if role_value in {"operator", "user"} else "assistant", "content": content[:max(0, per_message_chars)]})
     if limit > 0:
         projected = projected[-limit:]
     while len(projected) > 1 and sum(len(item["content"]) for item in projected) > max(0, total_chars):
