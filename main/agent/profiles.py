@@ -62,6 +62,7 @@ TASK_CHAT_AGENT = AgentProfile(
     allowed_tools=[
         "query_local_database",
         "query_uploaded_documents",
+        "retrieve_tool_result_detail",
         "query_state",
         "query_cases",
         "query_knowledge",

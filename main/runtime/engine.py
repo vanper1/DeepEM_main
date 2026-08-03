@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from deepem.agent.llm import LLMCancelledError
+from deepem.agent.tool_result_compressor import ToolResultCompressor
 from deepem.agent.profiles import GENERAL_QA_AGENT, PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
 from deepem.nl2sql_config import NL2SQLSessionConfig
 from deepem.protocol import (
@@ -541,6 +542,7 @@ class RunEngine:
                     asset_manager=self.context.asset_manager,
                     document_index=self.context.document_index,
                     database_catalog=self.context.database_catalog,
+                    tool_call_repo=self.context.tool_call_repo,
                     cancel_checker=cancel_checker,
                 ),
             )
@@ -619,6 +621,13 @@ class RunEngine:
         tool_call.ended_at = utc_now()
         tool_call.result = tool_result
         self.context.tool_call_repo.save(tool_call)
+        compact_result = ToolResultCompressor().compress(
+            tool_name=tool_name,
+            arguments=arguments,
+            tool_result=tool_result,
+            tool_call_id=tool_call.id,
+            preserve_retrieved_detail=tool_name == "retrieve_tool_result_detail",
+        )
         self._debug_log(
             run_id=run.id,
             stage="tool_call_finished",
@@ -674,15 +683,7 @@ class RunEngine:
                     "text": self._case_update_summary(arguments=arguments, tool_result=tool_result),
                 },
             )
-        content = json.dumps(
-            {
-                "status": tool_result.status,
-                "data": tool_result.data,
-                "error": tool_result.error,
-                "emitted_event_ids": tool_result.emitted_event_ids,
-            },
-            ensure_ascii=False,
-        )
+        content = json.dumps(compact_result, ensure_ascii=False)
         return {"role": "tool", "tool_call_id": invocation_id, "content": content}
 
     def _build_messages(

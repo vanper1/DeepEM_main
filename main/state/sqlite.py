@@ -757,6 +757,13 @@ class SQLiteToolCallRepo:
             )
             return tool_call
 
+    def get(self, tool_call_id: str) -> ToolCall:
+        with self.storage._lock:
+            row = self.storage._fetchone("SELECT data FROM tool_calls WHERE id = ?", (tool_call_id,))
+            if row is None:
+                raise KeyError(tool_call_id)
+            return _tool_call_from_dict(_loads(row["data"]))
+
     def list_by_run(self, run_id: str) -> list[ToolCall]:
         with self.storage._lock:
             return [

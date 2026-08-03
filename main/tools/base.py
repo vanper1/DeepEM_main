@@ -11,7 +11,7 @@ CancelChecker = Callable[[], bool]
 from deepem.devices.registry import DeviceRegistry
 from deepem.nl2sql_config import NL2SQLSessionConfig
 from deepem.protocol import ChatMessage, Event, EventType, EvidenceRef, Run, Task, ToolResult, utc_now
-from deepem.state.repositories import CaseRepo, KnowledgeBase, StateRepo
+from deepem.state.repositories import CaseRepo, KnowledgeBase, StateRepo, ToolCallRepo
 
 
 @dataclass(slots=True)
@@ -46,6 +46,7 @@ class ToolContext:
     asset_manager: Any | None = None
     document_index: Any | None = None
     database_catalog: Any | None = None
+    tool_call_repo: ToolCallRepo | None = None
     cancel_checker: CancelChecker | None = None
 
 

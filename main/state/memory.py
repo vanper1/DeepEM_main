@@ -226,6 +226,10 @@ class InMemoryToolCallRepo:
             self._items[tool_call.id] = tool_call
             return tool_call
 
+    def get(self, tool_call_id: str) -> ToolCall:
+        with self._lock:
+            return self._items[tool_call_id]
+
     def list_by_run(self, run_id: str) -> list[ToolCall]:
         with self._lock:
             return [self._items[item_id] for item_id in self._items_by_run[run_id]]
