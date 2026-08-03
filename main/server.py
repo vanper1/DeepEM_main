@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from deepem.agent.tool_result_compressor import ToolResultCompressor
 from deepem.document_index import DocumentIndexUnavailable
 from deepem.devices.usrp import UsrpApiError
 
@@ -1572,6 +1573,7 @@ def _serialize_run_steps(run_id: str | None) -> list[dict[str, Any]]:
         )
         if tool_call.result is not None:
             result = tool_call.result
+            compression = _tool_result_compression(tool_call.tool_name, tool_call.input, result, tool_call.id)
             steps.append(
                 {
                     "id": f"{tool_call.id}:result",
@@ -1582,6 +1584,7 @@ def _serialize_run_steps(run_id: str | None) -> list[dict[str, Any]]:
                     "data": result.data,
                     "error": result.error,
                     "attachments": [_serialize_attachment(ref) for ref in result.attachments],
+                    "compression": compression,
                     "text": _tool_result_summary(tool_call.tool_name, result),
                     "created_at": ended_at,
                 }
@@ -1597,6 +1600,25 @@ def _tool_result_summary(tool_name: str, result: ToolResult) -> str:
         return f"工具返回：{tool_name} 执行失败，原因：{_compact_text(result.error, limit=180)}"
     preview = _compact_json(result.data, limit=220)
     return f"工具返回：{preview or (tool_name + ' 执行成功')}"
+
+
+def _tool_result_compression(
+    tool_name: str,
+    arguments: dict[str, Any],
+    result: ToolResult,
+    tool_call_id: str,
+) -> dict[str, Any] | None:
+    try:
+        compact = ToolResultCompressor().compress(
+            tool_name=tool_name,
+            arguments=arguments,
+            tool_result=result,
+            tool_call_id=tool_call_id,
+        )
+    except Exception:
+        return None
+    compression = compact.get("compression")
+    return compression if isinstance(compression, dict) else None
 
 
 def _current_state():
