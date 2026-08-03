@@ -349,11 +349,16 @@ def chat_session_history(session_id: str) -> JSONResponse:
 
 @app.get("/api/chat/sessions/{session_id}/generation-status")
 def chat_generation_status(session_id: str) -> JSONResponse:
-    _get_chat_session_or_404(session_id)
+    conversation = _get_chat_session_or_404(session_id)
     active = _get_active_chat_stream(session_id)
     if active is not None:
         return JSONResponse({"session_id": session_id, "status": active.terminal_status or ("cancelling" if active.stop_event.is_set() else "running"), "run_id": active.run_id, "partial_text": active.partial_text, "error": active.error_message})
-    return JSONResponse({"session_id": session_id, "status": "idle", "partial_text": "", "error": None})
+    runs = [run for run in platform.app.runtime.run_repo.list_by_task(conversation.task_id) if run.conversation_id == conversation.id]
+    if not runs:
+        return JSONResponse({"session_id": session_id, "status": "idle", "partial_text": "", "error": None})
+    latest = max(runs, key=lambda run: run.ended_at or run.started_at)
+    status = "completed" if latest.status is RunStatus.COMPLETED else "cancelled" if latest.status is RunStatus.ABORTED else "failed"
+    return JSONResponse({"session_id": session_id, "status": status, "run_id": latest.id, "partial_text": "", "error": latest.stop_reason if status == "failed" else None})
 
 
 @app.post("/api/chat/stop")
