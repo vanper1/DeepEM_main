@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from deepem.agent.llm import LLMCancelledError
-from deepem.agent.profiles import PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
+from deepem.agent.profiles import GENERAL_QA_AGENT, PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
 from deepem.nl2sql_config import NL2SQLSessionConfig
 from deepem.protocol import (
     ChatMessage,
@@ -26,6 +26,7 @@ from deepem.protocol import (
     utc_now,
 )
 from deepem.runtime.context import RuntimeContext
+from deepem.runtime.chat_mode import ChatMode, build_execution_policy, effective_llm_options, project_general_history
 from deepem.tools.base import ToolContext
 from deepem.upload_processing import encode_image_as_data_url
 
@@ -59,6 +60,7 @@ class RunEngine:
         llm_options: Mapping[str, Any] | None = None,
         persist_assistant_message: bool = True,
         cancel_checker: CancelChecker | None = None,
+        chat_mode: ChatMode = ChatMode.WORKSPACE,
     ) -> ChatMessage | None:
         conversation = self.context.conversation_repo.get(conversation_id) if conversation_id else self.context.conversation_repo.get_by_task(task_id)
         messages = self.context.chat_repo.list_by_conversation(conversation.id)
@@ -74,6 +76,7 @@ class RunEngine:
             llm_options=llm_options,
             persist_assistant_message=persist_assistant_message,
             cancel_checker=cancel_checker,
+            chat_mode=chat_mode,
         )
         if run.summary is None:
             return None
@@ -106,11 +109,13 @@ class RunEngine:
         llm_options: Mapping[str, Any] | None = None,
         persist_assistant_message: bool = True,
         cancel_checker: CancelChecker | None = None,
+        chat_mode: ChatMode = ChatMode.WORKSPACE,
     ) -> Run:
+        chat_mode = ChatMode(chat_mode)
         nl2sql_options = nl2sql_options or NL2SQLSessionConfig()
-        llm_options = dict(llm_options or {})
+        llm_options = effective_llm_options(chat_mode, llm_options)
         task = self.context.task_repo.get(task_id)
-        profile = self._select_profile(trigger_kind)
+        profile = self._select_profile(trigger_kind, chat_mode)
         conversation = self.context.conversation_repo.get(conversation_id) if conversation_id else self.context.conversation_repo.get_by_task(task_id)
         run = Run(
             id=new_id("run"),
@@ -216,8 +221,21 @@ class RunEngine:
                     conversation_id=conversation.id,
                     transcript_messages=transcript_messages,
                     nl2sql_options=nl2sql_options,
+                    chat_mode=chat_mode,
                 )
                 tool_specs = self.context.tool_registry.specs(profile.allowed_tools)
+                self._emit(
+                    event_handler,
+                    "execution_policy",
+                    {
+                        "run_id": run.id,
+                        **build_execution_policy(
+                            chat_mode=chat_mode,
+                            available_tool_count=len(tool_specs),
+                            effective_options=llm_options,
+                        ).to_event(),
+                    },
+                )
                 self._debug_log(
                     run_id=run.id,
                     stage="llm_request",
@@ -281,6 +299,8 @@ class RunEngine:
                 )
                 run.step_count += 1
                 self.context.run_repo.save(run)
+                if chat_mode is ChatMode.GENERAL and response.tool_calls:
+                    response.tool_calls = []
                 self._record_reasoning_part(
                     task_id=task_id,
                     run_id=run.id,
@@ -427,8 +447,11 @@ class RunEngine:
         )
         return run
 
-    def _select_profile(self, trigger_kind: RunTriggerKind):
+    def _select_profile(self, trigger_kind: RunTriggerKind, chat_mode: ChatMode = ChatMode.WORKSPACE):
+        chat_mode = ChatMode(chat_mode)
         if trigger_kind == RunTriggerKind.CHAT:
+            if chat_mode is ChatMode.GENERAL:
+                return self.context.profiles.get(GENERAL_QA_AGENT.name, GENERAL_QA_AGENT)
             return self.context.profiles.get(TASK_CHAT_AGENT.name, TASK_CHAT_AGENT)
         return self.context.profiles.get(PLACE_DETECTION_AGENT.name, PLACE_DETECTION_AGENT)
 
@@ -673,7 +696,10 @@ class RunEngine:
         conversation_id: str,
         transcript_messages: list[dict[str, Any]],
         nl2sql_options: NL2SQLSessionConfig | None = None,
+        chat_mode: ChatMode = ChatMode.WORKSPACE,
     ) -> list[dict[str, Any]]:
+        if chat_mode is ChatMode.GENERAL:
+            return self._build_general_messages(profile=profile, trigger_message=trigger_message, conversation_id=conversation_id)
         state = self._session_scoped_state(self.context.state_repo.get(task.id), conversation_id)
         cases = [item for item in self.context.case_repo.list_by_task(task.id) if item.conversation_id == conversation_id]
         recent_messages = self.context.chat_repo.list_by_conversation(conversation_id, limit=8)
@@ -720,6 +746,16 @@ class RunEngine:
                 "assembled_messages": assembled,
             },
         )
+        return assembled
+
+    def _build_general_messages(self, *, profile, trigger_message: ChatMessage | None, conversation_id: str) -> list[dict[str, Any]]:
+        history = self.context.chat_repo.list_by_conversation(conversation_id)
+        prior_messages = [item for item in history if trigger_message is None or item.id != trigger_message.id]
+        assembled: list[dict[str, Any]] = [{"role": "system", "content": profile.system_prompt}]
+        assembled.extend(project_general_history(prior_messages))
+        live_user_message = self._build_live_user_message(trigger_message)
+        if live_user_message is not None:
+            assembled.append(live_user_message)
         return assembled
 
     def _build_live_user_message(self, trigger_message: ChatMessage | None) -> dict[str, Any] | None:

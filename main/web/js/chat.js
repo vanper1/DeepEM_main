@@ -1,6 +1,7 @@
 (function () {
   const app = window.DeepEMApp;
   const STORAGE_KEY = 'deepem.chat.currentSessionId';
+  const CHAT_MODE_KEY = 'deepem.chat.mode';
   const MODEL_SETTINGS_KEY = 'deepem.chat.modelSettings.v2';
   const DEFAULT_MODEL_OPTIONS = Object.freeze({
     temperature: 1.0,
@@ -20,6 +21,7 @@
   const sendBtn = () => document.getElementById('chatComposerSend');
   const sessionList = () => document.getElementById('chatSessionList');
   const newSessionBtn = () => document.getElementById('chatNewSessionBtn');
+  const chatModeSelector = () => document.getElementById('chatModeSelector');
   const backToLatestBtn = () => document.getElementById('chatBackToLatest');
   const chatUploadButton = () => document.getElementById('chatUploadButton');
   const chatUploadInput = () => document.getElementById('chatUploadInput');
@@ -81,6 +83,7 @@
     sessions: [],
     currentSessionId: null,
     isGenerating: false,
+    chatMode: 'general',
     openSessionMenuId: null,
     databases: [],
     dbDropdownOpen: false,
@@ -973,7 +976,8 @@
   function updateActionStates() {
     const hasSession = !!currentSession();
     newSessionBtn().disabled = state.isGenerating;
-    nl2sqlButton().disabled = state.isGenerating;
+    chatModeSelector().disabled = state.isGenerating;
+    nl2sqlButton().disabled = state.isGenerating || state.chatMode === 'general';
     chatUploadButton().disabled = state.isGenerating || !hasSession;
     sessionList().classList.toggle('disabled', state.isGenerating);
     if (modelSettingsReset()) modelSettingsReset().disabled = state.isGenerating;
@@ -988,6 +992,27 @@
       state.openSessionMenuId = null;
     }
     updateActionStates();
+  }
+
+  function loadChatMode() {
+    const stored = sessionStorage.getItem(CHAT_MODE_KEY);
+    state.chatMode = stored === 'workspace' ? 'workspace' : 'general';
+  }
+
+  function renderChatMode() {
+    chatModeSelector().querySelectorAll('[data-chat-mode]').forEach(button => {
+      const active = button.dataset.chatMode === state.chatMode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (state.chatMode === 'general') togglePopover(false);
+    updateActionStates();
+  }
+
+  function setChatMode(mode) {
+    state.chatMode = mode === 'workspace' ? 'workspace' : 'general';
+    sessionStorage.setItem(CHAT_MODE_KEY, state.chatMode);
+    renderChatMode();
   }
 
   function formatSessionTime(value) {
@@ -1979,6 +2004,7 @@
   }
 
   async function sendMessage(content, sessionId, attachments = []) {
+    const requestChatMode = state.chatMode;
     setGenerating(true);
     state.autoFollow = true;
     scrollToLatest(true);
@@ -1989,6 +2015,7 @@
         session_id: sessionId,
         content,
         attachment_ids: attachments.map(item => item.asset_id),
+        chat_mode: requestChatMode,
         nl2sql_options: getNL2SQLPayload(),
         llm_options: getModelOptionsPayload(),
       }),
@@ -2373,8 +2400,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    loadChatMode();
     loadModelOptions();
     renderModelSettings();
+    renderChatMode();
     nl2sqlForceEnabled().checked = state.nl2sql.forceEnabled;
     nl2sqlAutoSelectTables().checked = state.nl2sql.autoSelectTables;
     renderManualTableOptions();
@@ -2384,6 +2413,11 @@
     bindModelSettingsEvents();
     bindNL2SQLEvents();
     bindSessionEvents();
+    chatModeSelector().addEventListener('click', event => {
+      const button = event.target.closest('[data-chat-mode]');
+      if (!button || state.isGenerating) return;
+      setChatMode(button.dataset.chatMode);
+    });
     timeline().addEventListener('scroll', () => {
       state.autoFollow = isNearBottom();
       updateBackToLatestButton();

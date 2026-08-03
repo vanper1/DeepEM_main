@@ -27,6 +27,7 @@ from .spectrum_visualization import render_spectrum_png
 from .demo import DemoPlatform
 from .nl2sql_config import NL2SQLSessionConfig
 from .protocol import ChatRole, EvidenceRef, PartKind, Run, RunStatus, RunTriggerKind, ToolResult, new_id, utc_now
+from .runtime.chat_mode import ChatMode
 from .tools.sql_tool import SchemaIntrospector, find_preferred_nl2sql_database, resolve_nl2sql_db_path
 from .tools.base import ToolContext
 
@@ -72,6 +73,7 @@ class ChatIn(BaseModel):
     session_id: str
     content: str = ""
     attachment_ids: list[str] = Field(default_factory=list)
+    chat_mode: ChatMode = ChatMode.GENERAL
     nl2sql_options: NL2SQLOptionsIn = Field(default_factory=NL2SQLOptionsIn)
     llm_options: LLMOptionsIn = Field(default_factory=LLMOptionsIn)
 
@@ -1133,6 +1135,7 @@ def stream_chat(payload: ChatIn) -> StreamingResponse:
         content=content,
         role=ChatRole.OPERATOR,
         attachments=attachments,
+        metadata={"chat_mode": payload.chat_mode.value},
     )
     conversation = _get_chat_session_or_404(session_id)
     nl2sql_options = NL2SQLSessionConfig.from_payload(payload.nl2sql_options.model_dump(mode="python"))
@@ -1167,6 +1170,7 @@ def stream_chat(payload: ChatIn) -> StreamingResponse:
                     llm_options=llm_opts,
                     persist_assistant_message=False,
                     cancel_checker=lambda: active.stop_event.is_set(),
+                    chat_mode=payload.chat_mode,
                 )
             if active.stop_event.is_set():
                 active.cancelled = True

@@ -20,6 +20,7 @@ from deepem.protocol import (
     utc_now,
 )
 from deepem.runtime.engine import RunEngine
+from deepem.runtime.chat_mode import ChatMode
 from deepem.runtime.projector import EventProjector
 from deepem.state.repositories import ChatMessageRepo, ConversationRepo, EventRepo, StateRepo, TaskRepo
 
@@ -166,6 +167,7 @@ class ChatService:
         llm_options: Mapping[str, Any] | None = None,
         persist_assistant_message: bool = True,
         cancel_checker: Callable[[], bool] | None = None,
+        chat_mode: ChatMode = ChatMode.WORKSPACE,
     ) -> ChatMessage | None:
         return self.run_engine.run_chat(
             task_id,
@@ -176,6 +178,7 @@ class ChatService:
             llm_options=llm_options,
             persist_assistant_message=persist_assistant_message,
             cancel_checker=cancel_checker,
+            chat_mode=chat_mode,
         )
 
     @staticmethod

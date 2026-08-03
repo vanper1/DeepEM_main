@@ -542,6 +542,38 @@
   flex-wrap: wrap;
 }
 
+.chat-mode-selector {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(76px, 1fr));
+  margin: 0;
+  padding: 2px;
+  border: 1px solid rgba(159, 178, 212, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.chat-mode-option {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #9fb2cf;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chat-mode-option.active {
+  background: #e8eef8;
+  color: #162235;
+}
+
+.chat-mode-selector:disabled .chat-mode-option {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .btn-send.is-stop {
   background: linear-gradient(135deg, #d14343, #ff7070);
 }

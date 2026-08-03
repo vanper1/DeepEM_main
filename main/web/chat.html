@@ -54,6 +54,10 @@
           >
           <div class="chat-composer-actions">
             <div class="chat-composer-actions-left">
+              <fieldset id="chatModeSelector" class="chat-mode-selector" aria-label="聊天模式">
+                <button class="chat-mode-option active" type="button" data-chat-mode="general" aria-pressed="true">通用问答</button>
+                <button class="chat-mode-option" type="button" data-chat-mode="workspace" aria-pressed="false">工作区</button>
+              </fieldset>
               <button id="chatUploadButton" class="btn btn-detail" type="button">资料上传</button>
               <button id="docManagementButton" class="btn btn-detail" type="button">资料管理</button>
               <span id="chatAttachmentHint" class="muted">支持图片、PDF、Markdown、TXT、DOCX、BIN。</span>

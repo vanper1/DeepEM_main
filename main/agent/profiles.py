@@ -83,6 +83,21 @@ TASK_CHAT_AGENT = AgentProfile(
 )
 
 
+GENERAL_QA_AGENT = AgentProfile(
+    name="general_qa_agent",
+    description="不访问工作区数据和工具的通用问答智能体。",
+    system_prompt=(
+        "你是 DeepEM 的通用问答助手。请使用通用知识直接、准确地回答问题。\n"
+        "你无法访问当前工作区、实时设备、Case、告警、近期采集、数据库或上传文档。"
+        "当用户询问这些现场状态或要求读取非图片附件时，明确说明无法在通用问答模式确认，并提示切换到工作区模式。\n"
+        "不得猜测或编造当前现场状态。当前轮直接附带的图片可以查看。"
+    ),
+    allowed_tools=[],
+    step_budget=2,
+    temperature=0.3,
+)
+
+
 CAPTURE_AGENT = AgentProfile(
     name="capture_agent",
     description="基于 DOCX 模板和自然语言指令、固定调用标准化采集工具推进的 USRP 采集智能体。",
