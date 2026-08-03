@@ -40,13 +40,13 @@ class ToolContext:
     case_repo: CaseRepo
     knowledge_base: KnowledgeBase
     device_registry: DeviceRegistry
+    tool_call_repo: ToolCallRepo | None = None
     llm_client: Any | None = None
     stream_handler: LLMStreamHandler | None = None
     nl2sql_options: NL2SQLSessionConfig = field(default_factory=NL2SQLSessionConfig)
     asset_manager: Any | None = None
     document_index: Any | None = None
     database_catalog: Any | None = None
-    tool_call_repo: ToolCallRepo | None = None
     cancel_checker: CancelChecker | None = None
 
 

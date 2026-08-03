@@ -54,9 +54,13 @@ TASK_CHAT_AGENT = AgentProfile(
         "你也可以自主调用工具获取所需信息。"
         "如果问题涉及上传的文档、二进制文件或历史资料，优先调用 query_uploaded_documents。"
         "如果当前轮直接附带图片，你可以在用户消息中直接查看图片内容。"
+        "当工具返回的 compact result 中 can_retrieve_more 为 true，且你需要 omitted_fields 中的完整代码、日志、文档片段、SQL 行或嵌套执行详情时，调用 retrieve_tool_result_detail，使用 tool_result_id 和对应 path 获取原始字段。"
+        "当 retrieve_tool_result_detail 返回 terminal=true 时，请直接使用 data.value 回答，不得再次回捞同一 tool_result_id 和 path。"
+        "不要因为 can_retrieve_more 为 true 自动继续回捞；如果当前片段或回捞内容已经足以回答用户问题，应停止调用工具并直接回答。"
         "当用户提出复杂 USRP/频谱采集任务，尤其要求自动生成代码、全频段扫描、多频点、多轮平均、直接使用 WebSocket FFT、保存结果、异常自适应重扫时，优先调用 run_autonomous_usrp_task。"
         "如果用户想查看或分步控制代码生成过程，可以先调用 retrieve_usrp_api_knowledge，再调用 generate_usrp_task_code，最后调用 execute_usrp_task_code。"
-        "调用自主采集工具时，task_description 应完整保留用户原始需求；所有设备操作必须经过采集计划审批与工具安全校验。"
+        "调用自主采集工具时，task_description 应完整保留用户原始需求；除非用户明确要求演示/模拟，否则 dry_run 设为 false。"
+        "所有设备操作必须经过采集计划审批与工具安全校验。"
         "不要反复调用同一个工具"
     ),
     allowed_tools=[
@@ -79,7 +83,7 @@ TASK_CHAT_AGENT = AgentProfile(
         "extract_baseline_spectrum_peaks",
         "compare_spectrum_with_baseline",
     ],
-    step_budget=8,
+    step_budget=36,
     temperature=0.1,
 )
 

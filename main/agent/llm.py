@@ -40,11 +40,44 @@ class LLMCancelledError(RuntimeError):
     pass
 
 
+def _body_value(body: Any, key: str) -> Any:
+    if isinstance(body, dict):
+        return body.get(key)
+    return getattr(body, key, None)
+
+
 def is_context_length_error(exc: BaseException) -> bool:
+    body = getattr(exc, "body", None)
+    body_param = _body_value(body, "param")
+    body_message = _body_value(body, "message")
+    status_code = getattr(exc, "status_code", None)
     text = " ".join(
-        str(item) for item in (exc.__class__.__name__, getattr(exc, "code", ""), getattr(exc, "status_code", ""), str(exc))
+        str(item)
+        for item in (
+            exc.__class__.__name__,
+            getattr(exc, "code", ""),
+            status_code or "",
+            body_param or "",
+            body_message or "",
+            str(exc),
+        )
+        if item is not None
     ).lower()
-    return any(marker in text for marker in ("maximum context length", "max_model_len", "too many tokens", "prompt contains", "reduce the length"))
+    if not text:
+        return False
+    markers = (
+        "maximum context length",
+        "max_model_len",
+        "prompt contains",
+        "reduce the length",
+        "too many tokens",
+    )
+    has_context_marker = any(marker in text for marker in markers)
+    has_input_token_marker = "input tokens" in text and ("prompt" in text or "maximum" in text or "context" in text)
+    status_matches = status_code is None or str(status_code) == "400"
+    if not status_matches:
+        return False
+    return has_context_marker or (str(body_param or "") == "input_tokens" and has_input_token_marker)
 
 
 class LLMClient(Protocol):
@@ -89,7 +122,7 @@ class OpenAICompatibleLLMClient:
             "model": self.settings.model,
             "messages": messages,
             "temperature": self._float_option(options, "temperature", temperature),
-            "stream": True,
+            "stream": self._optional_bool_option(options, "stream") if "stream" in options else True,
         }
 
         self._apply_generation_options(payload, options)
@@ -115,50 +148,15 @@ class OpenAICompatibleLLMClient:
             payload["tool_choice"] = "auto"
 
         response = self.client.chat.completions.create(**payload)
+        if payload.get("stream") is False:
+            return self._response_from_non_stream(response)
+
         content_chunks: list[str] = []
         reasoning_chunks: list[str] = []
         raw_chunks: list[dict[str, Any]] = []
         tool_call_states: dict[int, dict[str, Any]] = {}
         content_started = False
         reasoning_started = False
-        inline_think_state: dict[str, Any] = {"buffer": "", "inside": False}
-
-        def emit_reasoning(piece: str) -> None:
-            nonlocal reasoning_started
-            if not piece:
-                return
-            reasoning_chunks.append(piece)
-            if stream_handler is not None:
-                if not reasoning_started:
-                    stream_handler("reasoning_start", {})
-                    reasoning_started = True
-                stream_handler("reasoning_delta", {"delta": piece})
-
-        def emit_content(piece: str) -> None:
-            nonlocal content_started
-            if not piece:
-                return
-            content_chunks.append(piece)
-            if stream_handler is not None:
-                if not content_started:
-                    stream_handler("content_start", {})
-                    content_started = True
-                stream_handler("content_delta", {"delta": piece})
-
-        def finish_streams(finish_reason: str) -> None:
-            nonlocal reasoning_started, content_started
-            inline_reasoning, visible_content = self._demux_inline_thinking("", inline_think_state, final=True)
-            for piece in inline_reasoning:
-                emit_reasoning(piece)
-            for piece in visible_content:
-                emit_content(piece)
-            if stream_handler is not None:
-                if reasoning_started:
-                    stream_handler("reasoning_done", {})
-                    reasoning_started = False
-                if content_started:
-                    stream_handler("content_done", {"finish_reason": finish_reason})
-                    content_started = False
 
         try:
             for chunk in response:
@@ -181,7 +179,14 @@ class OpenAICompatibleLLMClient:
                 if not reasoning_delta:
                     reasoning_delta = self._normalize_content(getattr(delta, "reasoning", None))
                 if reasoning_delta:
-                    emit_reasoning(self._strip_think_output_delta(reasoning_delta))
+                    cleaned_reasoning_delta = self._strip_think_output_delta(reasoning_delta)
+                    if cleaned_reasoning_delta:
+                        reasoning_chunks.append(cleaned_reasoning_delta)
+                        if stream_handler is not None:
+                            if not reasoning_started:
+                                stream_handler("reasoning_start", {})
+                                reasoning_started = True
+                            stream_handler("reasoning_delta", {"delta": cleaned_reasoning_delta})
 
                 content_delta = self._normalize_content(getattr(delta, "content", None))
                 if not content_delta and isinstance(delta, dict):
@@ -189,13 +194,14 @@ class OpenAICompatibleLLMClient:
                 if not content_delta and raw_delta:
                     content_delta = self._normalize_content(raw_delta.get("content"))
                 if content_delta:
-                    inline_reasoning, visible_content = self._demux_inline_thinking(
-                        content_delta, inline_think_state
-                    )
-                    for piece in inline_reasoning:
-                        emit_reasoning(piece)
-                    for piece in visible_content:
-                        emit_content(piece)
+                    cleaned_content_delta = self._strip_think_output_delta(content_delta)
+                    if cleaned_content_delta:
+                        content_chunks.append(cleaned_content_delta)
+                        if stream_handler is not None:
+                            if not content_started:
+                                stream_handler("content_start", {})
+                                content_started = True
+                            stream_handler("content_delta", {"delta": cleaned_content_delta})
 
                 tool_delta = getattr(delta, "tool_calls", None)
                 if tool_delta is None and isinstance(delta, dict):
@@ -206,16 +212,18 @@ class OpenAICompatibleLLMClient:
 
                 self._raise_if_cancelled(cancel_checker, response=response)
 
-                if finish_reason:
-                    finish_streams(str(finish_reason))
+                if finish_reason and stream_handler is not None:
+                    if reasoning_started:
+                        stream_handler("reasoning_done", {})
+                        reasoning_started = False
+                    if content_started:
+                        stream_handler("content_done", {"finish_reason": finish_reason})
         except LLMCancelledError:
-            finish_streams("cancelled")
+            if reasoning_started and stream_handler is not None:
+                stream_handler("reasoning_done", {})
+            if content_started and stream_handler is not None:
+                stream_handler("content_done", {"finish_reason": "cancelled"})
             raise
-
-        # Some OpenAI-compatible servers omit finish_reason on their last chunk.
-        # Flush any split <think> tag and close the UI streams deterministically.
-        if reasoning_started or content_started or inline_think_state.get("buffer"):
-            finish_streams("stop")
 
         content = self._strip_think_output("".join(content_chunks))
         reasoning = "".join(reasoning_chunks).strip()
@@ -235,6 +243,32 @@ class OpenAICompatibleLLMClient:
             tool_calls=tool_calls,
             raw=raw,
         )
+
+    def _response_from_non_stream(self, response: Any) -> LLMResponse:
+        raw = response.model_dump(mode="json") if hasattr(response, "model_dump") else {}
+        choices = getattr(response, "choices", None) or raw.get("choices") or []
+        if not choices:
+            return LLMResponse(content="", raw=raw)
+        choice = choices[0]
+        message = getattr(choice, "message", None)
+        if isinstance(choice, dict):
+            message = choice.get("message", message)
+        raw_message = {}
+        if raw.get("choices") and isinstance(raw["choices"][0], dict):
+            raw_message = raw["choices"][0].get("message") or {}
+        content = self._strip_think_output(self._normalize_content(getattr(message, "content", None)))
+        if isinstance(message, dict):
+            content = self._strip_think_output(self._normalize_content(message.get("content")))
+        reasoning = self._extract_reasoning(message=message, raw=raw)
+        tool_calls = self._extract_structured_tool_calls(message)
+        if not tool_calls and isinstance(raw_message, dict):
+            tool_calls = self._extract_structured_tool_calls(raw_message)
+        if not tool_calls and content:
+            parsed_tool_calls, cleaned_content = self._extract_tool_calls_from_content(content)
+            if parsed_tool_calls:
+                tool_calls = parsed_tool_calls
+                content = cleaned_content.strip()
+        return LLMResponse(content=content, reasoning=reasoning, tool_calls=tool_calls, raw=raw)
 
     @staticmethod
     def _close_stream(response: Any) -> None:
@@ -289,9 +323,13 @@ class OpenAICompatibleLLMClient:
             if preserve_thinking is not None:
                 chat_template_kwargs["preserve_thinking"] = preserve_thinking
 
-            # reasoning_effort = options.get("reasoning_effort")
-            # if reasoning_effort and reasoning_effort in ("low", "medium", "high"):
-            #     chat_template_kwargs["reasoning_effort"] = reasoning_effort
+            reasoning_effort = options.get("reasoning_effort")
+            if (
+                reasoning_effort
+                and reasoning_effort in ("low", "medium", "high")
+                and not self._is_maas_qwen36_a3b()
+            ):
+                chat_template_kwargs["reasoning_effort"] = reasoning_effort
 
             extra_body["chat_template_kwargs"] = chat_template_kwargs
 
@@ -430,20 +468,22 @@ class OpenAICompatibleLLMClient:
 
     def _extract_structured_tool_calls(self, message: Any) -> list[LLMToolCall]:
         tool_calls: list[LLMToolCall] = []
-        for item in getattr(message, "tool_calls", None) or []:
-            raw_arguments = item.function.arguments or "{}"
+        raw_items = message.get("tool_calls") if isinstance(message, dict) else getattr(message, "tool_calls", None)
+        for item in raw_items or []:
+            function = item.get("function") if isinstance(item, dict) else getattr(item, "function", None)
+            raw_arguments = (function.get("arguments") if isinstance(function, dict) else getattr(function, "arguments", None)) or "{}"
             try:
                 arguments = json.loads(raw_arguments)
             except json.JSONDecodeError:
                 arguments = {"raw_arguments": raw_arguments}
             tool_calls.append(
                 LLMToolCall(
-                    id=item.id,
-                    name=item.function.name,
-                    arguments=arguments,
+                    id=str(item.get("id") if isinstance(item, dict) else getattr(item, "id", "")),
+                    name=str(function.get("name") if isinstance(function, dict) else getattr(function, "name", "")),
+                    arguments=arguments if isinstance(arguments, dict) else {"raw_arguments": arguments},
                 )
             )
-        return tool_calls
+        return [item for item in tool_calls if item.name]
 
     def _extract_tool_calls_from_content(self, content: str) -> tuple[list[LLMToolCall], str]:
         tool_calls: list[LLMToolCall] = []
@@ -512,6 +552,15 @@ class OpenAICompatibleLLMClient:
             return False
         return "qwen" in model_name.lower()
 
+    def _is_maas_qwen36_a3b(self) -> bool:
+        return (
+            (self.settings.model or "").lower() == "qwen3.6-35b-a3b"
+            and any(
+                domain in (self.settings.base_url or "").lower()
+                for domain in ("maas.aliyuncs.com", "dashscope.aliyuncs.com")
+            )
+        )
+
     @staticmethod
     def _normalize_content(content: Any) -> str:
         if content is None:
@@ -526,68 +575,6 @@ class OpenAICompatibleLLMClient:
             return "".join(parts)
         return str(content)
 
-
-
-    @staticmethod
-    def _pending_tag_prefix(buffer: str, tag: str) -> int:
-        """Length of a trailing fragment that may be the start of *tag*."""
-        maximum = min(len(buffer), len(tag) - 1)
-        lowered = buffer.lower()
-        target = tag.lower()
-        for size in range(maximum, 0, -1):
-            if lowered[-size:] == target[:size]:
-                return size
-        return 0
-
-    @classmethod
-    def _demux_inline_thinking(
-        cls,
-        delta: str,
-        state: dict[str, Any],
-        *,
-        final: bool = False,
-    ) -> tuple[list[str], list[str]]:
-        """Split providers that stream ``<think>`` inside the content channel.
-
-        Tags may be split across arbitrary chunks.  The method keeps only the
-        shortest possible tag prefix buffered, so both reasoning and final JSON
-        remain genuinely live while never being mixed together.
-        """
-        state["buffer"] = str(state.get("buffer") or "") + str(delta or "")
-        inside = bool(state.get("inside"))
-        reasoning: list[str] = []
-        content: list[str] = []
-        open_tag = "<think>"
-        close_tag = "</think>"
-
-        while state["buffer"]:
-            buffer = str(state["buffer"])
-            lowered = buffer.lower()
-            tag = close_tag if inside else open_tag
-            index = lowered.find(tag)
-            if index >= 0:
-                piece = buffer[:index]
-                if piece:
-                    (reasoning if inside else content).append(piece)
-                state["buffer"] = buffer[index + len(tag) :]
-                inside = not inside
-                state["inside"] = inside
-                continue
-
-            if final:
-                (reasoning if inside else content).append(buffer)
-                state["buffer"] = ""
-                break
-
-            hold = cls._pending_tag_prefix(buffer, tag)
-            emit = buffer[:-hold] if hold else buffer
-            if emit:
-                (reasoning if inside else content).append(emit)
-            state["buffer"] = buffer[-hold:] if hold else ""
-            break
-
-        state["inside"] = inside
-        return reasoning, content
 
     @staticmethod
     def _strip_think_output_delta(content: str) -> str:
@@ -748,7 +735,7 @@ class LocalWorkflowLLMClient:
             return LLMResponse(
                 content="已识别为复杂 USRP/频谱采集任务，正在调用代码生成型自主采集工具。",
                 reasoning="用户要求通过智能体自主完成采集，需调用 run_autonomous_usrp_task 生成并执行受控采集函数，当前版本直接使用 USRP WebSocket FFT 数据。",
-                tool_calls=[self._tool_call("run_autonomous_usrp_task", {"task_description": message})],
+                tool_calls=[self._tool_call("run_autonomous_usrp_task", {"task_description": message, "dry_run": False})],
             )
         if autonomous_result is not None:
             execution = autonomous_result.get("execution_result") or {}

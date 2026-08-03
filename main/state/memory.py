@@ -221,14 +221,16 @@ class InMemoryToolCallRepo:
             self._items_by_run[tool_call.run_id].append(tool_call.id)
             return tool_call
 
+    def get(self, tool_call_id: str) -> ToolCall:
+        with self._lock:
+            if tool_call_id not in self._items:
+                raise KeyError(tool_call_id)
+            return self._items[tool_call_id]
+
     def save(self, tool_call: ToolCall) -> ToolCall:
         with self._lock:
             self._items[tool_call.id] = tool_call
             return tool_call
-
-    def get(self, tool_call_id: str) -> ToolCall:
-        with self._lock:
-            return self._items[tool_call_id]
 
     def list_by_run(self, run_id: str) -> list[ToolCall]:
         with self._lock:
