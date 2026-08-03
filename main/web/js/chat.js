@@ -76,6 +76,7 @@
   const llmThinkingTokenBudget = () => document.getElementById('llmThinkingTokenBudget');
 
   let currentRun = null;
+  let generationPollTimer = null;
   const state = {
     thinkingBubble: null,
     provisionalFinalBubble: null,
@@ -2063,9 +2064,34 @@
       }
     }
     if (state.isGenerating) {
-      setGenerating(false);
       currentRun = null;
+      await syncGenerationStatus(sessionId);
+    }
+  }
+
+  function scheduleGenerationPoll(sessionId) {
+    if (generationPollTimer !== null) window.clearTimeout(generationPollTimer);
+    generationPollTimer = window.setTimeout(() => {
+      generationPollTimer = null;
+      void syncGenerationStatus(sessionId);
+    }, 1500);
+  }
+
+  async function syncGenerationStatus(sessionId) {
+    if (!sessionId || sessionId !== state.currentSessionId) return;
+    try {
+      const status = await app.api(`/api/chat/sessions/${encodeURIComponent(sessionId)}/generation-status`);
+      if (['running', 'cancelling'].includes(status.status)) {
+        setGenerating(true);
+        scheduleGenerationPoll(sessionId);
+        return;
+      }
+      setGenerating(false);
+      await loadHistory(sessionId);
       await refreshSessions();
+    } catch (error) {
+      console.error(error);
+      scheduleGenerationPoll(sessionId);
     }
   }
 
@@ -2430,6 +2456,7 @@
     }, { passive: true });
     backToLatestBtn().addEventListener('click', jumpToLatest);
     await initializeSessions();
+    void syncGenerationStatus(state.currentSessionId);
     renderDraftAttachments();
     await maybeStartAutoBaselineJudgement();
     void (async () => {

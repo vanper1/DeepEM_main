@@ -156,6 +156,10 @@ class ActiveChatStream:
     run_id: str | None = None
     cancelled: bool = False
     finalized: bool = False
+    finalize_lock: threading.Lock = field(default_factory=threading.Lock)
+    terminal_status: str | None = None
+    error_message: str | None = None
+    subscriber_closed: bool = False
 
 
 _active_chat_streams: dict[str, ActiveChatStream] = {}
@@ -341,6 +345,15 @@ def delete_chat_session(session_id: str) -> JSONResponse:
 def chat_session_history(session_id: str) -> JSONResponse:
     conversation = _get_chat_session_or_404(session_id)
     return JSONResponse({"session": _serialize_conversation(conversation), "items": _serialize_history(conversation.id)})
+
+
+@app.get("/api/chat/sessions/{session_id}/generation-status")
+def chat_generation_status(session_id: str) -> JSONResponse:
+    _get_chat_session_or_404(session_id)
+    active = _get_active_chat_stream(session_id)
+    if active is not None:
+        return JSONResponse({"session_id": session_id, "status": active.terminal_status or ("cancelling" if active.stop_event.is_set() else "running"), "run_id": active.run_id, "partial_text": active.partial_text, "error": active.error_message})
+    return JSONResponse({"session_id": session_id, "status": "idle", "partial_text": "", "error": None})
 
 
 @app.post("/api/chat/stop")
@@ -1174,10 +1187,12 @@ def stream_chat(payload: ChatIn) -> StreamingResponse:
                 )
             if active.stop_event.is_set():
                 active.cancelled = True
+                _finalize_active_chat_stream(active, status="cancelled")
                 active.event_queue.put({"type": "stop_requested", "data": {"session_id": session_id}})
                 return
             active.reply_full_text = (reply.content if reply else "") or ""
             active.run_id = reply.run_id if reply else None
+            _finalize_active_chat_stream(active, status="completed")
             if active.reply_full_text and not active.answer_streamed:
                 active.event_queue.put({"type": "final_answer_start", "data": {"session_id": session_id, "run_id": active.run_id, "provisional": False}})
                 active.event_queue.put({"type": "final_answer_delta", "data": {"session_id": session_id, "run_id": active.run_id, "delta": active.reply_full_text, "provisional": False}})
@@ -1185,9 +1200,13 @@ def stream_chat(payload: ChatIn) -> StreamingResponse:
         except Exception as exc:
             if active.stop_event.is_set():
                 active.cancelled = True
+                _finalize_active_chat_stream(active, status="cancelled")
                 active.event_queue.put({"type": "stop_requested", "data": {"session_id": session_id}})
                 return
+            _finalize_active_chat_stream(active, status="failed", error_message=str(exc))
             active.event_queue.put({"type": "error", "data": {"message": str(exc), "session_id": session_id}})
+        finally:
+            _pop_active_chat_stream(session_id, active)
 
     threading.Thread(target=worker, name=f"chat-sse-{operator_message.id}", daemon=True).start()
 
@@ -1244,7 +1263,7 @@ def stream_chat(payload: ChatIn) -> StreamingResponse:
                         )
                     break
         finally:
-            _finalize_active_chat_stream(active)
+            active.subscriber_closed = True
 
     return StreamingResponse(
         event_stream(),
@@ -1445,23 +1464,21 @@ def _pop_active_chat_stream(session_id: str, stream: ActiveChatStream) -> None:
             _active_chat_streams.pop(session_id, None)
 
 
-def _finalize_active_chat_stream(stream: ActiveChatStream) -> None:
-    if stream.finalized:
-        _pop_active_chat_stream(stream.session_id, stream)
-        return
-    stream.finalized = True
-    _pop_active_chat_stream(stream.session_id, stream)
-    content = stream.partial_text if stream.cancelled else (stream.reply_full_text or stream.partial_text)
-    if not (content or "").strip():
-        return
-    platform.app.chat_service.append_message(
-        task_id=stream.task_id,
-        conversation_id=stream.session_id,
-        content=content,
-        role=ChatRole.ASSISTANT,
-        run_id=stream.run_id,
-        metadata={"stopped": stream.cancelled, "partial": stream.cancelled},
-    )
+def _finalize_active_chat_stream(stream: ActiveChatStream, *, status: str, error_message: str | None = None) -> bool:
+    with stream.finalize_lock:
+        if stream.finalized:
+            return False
+        stream.finalized = True
+        stream.terminal_status = status
+        stream.error_message = error_message
+        content = stream.partial_text if status == "cancelled" else stream.reply_full_text if status == "completed" else ""
+        if (content or "").strip():
+            platform.app.chat_service.append_message(
+                task_id=stream.task_id, conversation_id=stream.session_id, content=content,
+                role=ChatRole.ASSISTANT, run_id=stream.run_id,
+                metadata={"stopped": status == "cancelled", "partial": status == "cancelled"},
+            )
+        return True
 
 
 def _list_chat_sessions() -> list[Any]:
