@@ -9,6 +9,7 @@ from typing import Any
 from deepem.agent.llm import LLMCancelledError, is_context_length_error
 from deepem.agent.context_budget import ContextBudgetEstimator
 from deepem.agent.context_compressor import ContextCompressionOptions, ConversationContextCompressor
+from deepem.agent.context_reducer import ContextReductionPolicy
 from deepem.agent.tool_result_compressor import ToolResultCompressor
 from deepem.agent.profiles import GENERAL_QA_AGENT, PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
 from deepem.nl2sql_config import NL2SQLSessionConfig
@@ -735,8 +736,9 @@ class RunEngine:
             assembled.append(live_user_message)
         assembled.extend(transcript_messages)
         budget = ContextBudgetEstimator().estimate(assembled)
+        reduction_stage = ContextReductionPolicy().stage_for_ratio(float(budget["token_usage_ratio"]))
         summary = ConversationContextCompressor().build_summary_message(all_messages)
-        if budget["status"] == "danger":
+        if reduction_stage == "aggressive":
             recent_messages = all_messages[-4:]
             base_messages = self.context.prompt_builder.build(
                 profile=profile, task=task, run=run, trigger_event=trigger_event, trigger_message=trigger_message,

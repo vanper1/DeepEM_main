@@ -33,6 +33,9 @@ dependencies = [
 dev = [
   "pytest>=8,<9",
 ]
+tokenizer = [
+  "transformers>=4.51,<5",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
