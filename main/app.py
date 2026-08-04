@@ -7,7 +7,7 @@ from typing import Any
 
 from deepem.agent.config import LLMSettings
 from deepem.agent.llm import LLMClient, LocalWorkflowLLMClient, OpenAICompatibleLLMClient
-from deepem.agent.profiles import CAPTURE_AGENT, PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
+from deepem.agent.profiles import CAPTURE_AGENT, GENERAL_QA_AGENT, PLACE_DETECTION_AGENT, TASK_CHAT_AGENT
 from deepem.agent.prompt_builder import PromptBuilder
 from deepem.assets import AssetManager
 from deepem.control.services import ChatService, EventIngestService, TaskService
@@ -147,7 +147,12 @@ def build_app(
         projector=projector,
         llm_client=llm_client,
         prompt_builder=PromptBuilder(),
-        profiles={PLACE_DETECTION_AGENT.name: PLACE_DETECTION_AGENT, TASK_CHAT_AGENT.name: TASK_CHAT_AGENT, CAPTURE_AGENT.name: CAPTURE_AGENT},
+        profiles={
+            PLACE_DETECTION_AGENT.name: PLACE_DETECTION_AGENT,
+            TASK_CHAT_AGENT.name: TASK_CHAT_AGENT,
+            GENERAL_QA_AGENT.name: GENERAL_QA_AGENT,
+            CAPTURE_AGENT.name: CAPTURE_AGENT,
+        },
         asset_manager=asset_manager,
         document_index=document_index,
         database_catalog=database_catalog,

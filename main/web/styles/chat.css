@@ -483,6 +483,42 @@
   color: #b9f1c7;
 }
 
+.chat-step.context_compression {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.28);
+  color: #bfdbfe;
+}
+
+.chat-step.context_budget {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+}
+
+.chat-step.context_budget.ok {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.28);
+  color: #99f6e4;
+}
+
+.chat-step.context_budget.danger {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.34);
+  color: #fecaca;
+}
+
+.chat-step.prompt_composition {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.28);
+  color: #99f6e4;
+}
+
+.chat-step.context_aggressive_compression {
+  background: rgba(129, 140, 248, 0.14);
+  border-color: rgba(129, 140, 248, 0.34);
+  color: #ddd6fe;
+}
+
 .chat-step.case_update {
   background: rgba(255, 159, 67, 0.14);
   border-color: rgba(255, 159, 67, 0.32);
@@ -540,6 +576,38 @@
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+.chat-mode-selector {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(76px, 1fr));
+  margin: 0;
+  padding: 2px;
+  border: 1px solid rgba(159, 178, 212, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.chat-mode-option {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #9fb2cf;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chat-mode-option.active {
+  background: #e8eef8;
+  color: #162235;
+}
+
+.chat-mode-selector:disabled .chat-mode-option {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .btn-send.is-stop {
@@ -715,6 +783,17 @@
   color: #eef4ff;
 }
 
+.chat-compression-meta {
+  align-self: flex-start;
+  border: 1px solid rgba(159, 178, 212, 0.18);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #9fb2d4;
+  background: rgba(3, 8, 15, 0.36);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .chat-sql-block {
   margin: 0;
   white-space: pre-wrap;
@@ -805,6 +884,10 @@
 
   .chat-composer-actions-left {
     align-items: stretch;
+  }
+
+  .chat-mode-selector {
+    width: 100%;
   }
 
   .chat-bubble {

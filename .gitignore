@@ -41,6 +41,8 @@ vllm.log
 # Debug / local runtime files
 deepem_debug_logs/
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 *.db
 *.pid
 

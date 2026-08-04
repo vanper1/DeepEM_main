@@ -2,6 +2,7 @@
   const app = window.DeepEMApp;
   const STORAGE_KEY = 'deepem.chat.currentSessionId';
   const MODEL_SETTINGS_KEY = 'deepem.chat.modelSettings.v2';
+  const CHAT_MODE_KEY = 'deepem.chat.mode';
   const DEFAULT_MODEL_OPTIONS = Object.freeze({
     temperature: 1.0,
     top_p: 0.95,
@@ -18,6 +19,7 @@
   const timeline = () => document.getElementById('chatTimeline');
   const input = () => document.getElementById('chatComposerInput');
   const sendBtn = () => document.getElementById('chatComposerSend');
+  const chatModeSelector = () => document.getElementById('chatModeSelector');
   const sessionList = () => document.getElementById('chatSessionList');
   const newSessionBtn = () => document.getElementById('chatNewSessionBtn');
   const backToLatestBtn = () => document.getElementById('chatBackToLatest');
@@ -74,6 +76,8 @@
   const llmThinkingTokenBudget = () => document.getElementById('llmThinkingTokenBudget');
 
   let currentRun = null;
+  let generationPollTimer = null;
+  let generationPollSessionId = null;
   const state = {
     thinkingBubble: null,
     provisionalFinalBubble: null,
@@ -81,6 +85,7 @@
     sessions: [],
     currentSessionId: null,
     isGenerating: false,
+    chatMode: 'general',
     openSessionMenuId: null,
     databases: [],
     dbDropdownOpen: false,
@@ -598,7 +603,154 @@
     return wrap;
   }
 
-  function appendDatabaseToolCard(data) {
+  function formatCompactChars(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return '-';
+    if (number >= 1000000) return `${(number / 1000000).toFixed(1)}m`;
+    if (number >= 1000) return `${(number / 1000).toFixed(1)}k`;
+    return String(Math.round(number));
+  }
+
+  function formatCompactTokens(value) {
+    const formatted = formatCompactChars(value);
+    return formatted === '-' ? '-' : `${formatted} tok`;
+  }
+
+  function formatRatio(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '-';
+    return `${(number * 100).toFixed(1)}%`;
+  }
+
+  function appendCompressionMeta(card, compression) {
+    if (!card || !compression || typeof compression !== 'object') return;
+    const rawChars = compression.raw_chars;
+    const compactChars = compression.compact_chars;
+    const dataRatio = compression.data_compression_ratio;
+    const ratio = compression.compression_ratio;
+    if (ratio == null && dataRatio == null) return;
+    const meta = document.createElement('div');
+    meta.className = 'chat-compression-meta';
+    meta.title = `raw=${rawChars ?? '-'} compact=${compactChars ?? '-'} data=${compression.data_chars ?? '-'} omitted=${compression.omitted_fields_chars ?? '-'}`;
+    meta.textContent = [
+      `工具结果压缩率 ${formatRatio(ratio)}`,
+      `data ${formatRatio(dataRatio)}`,
+      `${formatCompactChars(rawChars)} -> ${formatCompactChars(compactChars)}`,
+    ].join(' ｜ ');
+    const title = card.querySelector('.chat-tool-card-title');
+    if (title && title.nextSibling) {
+      card.insertBefore(meta, title.nextSibling);
+      return;
+    }
+    card.appendChild(meta);
+  }
+
+  function appendContextCompressionStep(data) {
+    const older = Number(data && data.older_message_count);
+    const tools = Number(data && data.tool_result_count);
+    const summary = formatCompactChars(data && data.summary_chars);
+    const ratio = data && data.summary_compression_ratio != null ? formatRatio(data.summary_compression_ratio) : '-';
+    const text = `上下文压缩 已启用 | 历史摘要压缩比 ${ratio} | 旧消息 ${Number.isFinite(older) ? older : '-'} | 摘要 ${summary} | 工具索引 ${Number.isFinite(tools) ? tools : '-'}`;
+    const step = appendStep('context_compression', text);
+    if (step) {
+      step.title = `method=${data && data.method ? data.method : '-'} older=${data && data.older_messages_chars != null ? data.older_messages_chars : '-'} summary=${data && data.summary_chars != null ? data.summary_chars : '-'} assembled=${data && data.assembled_chars_before != null ? data.assembled_chars_before : '-'} after=${data && data.assembled_chars_after != null ? data.assembled_chars_after : '-'}`;
+    }
+    return step;
+  }
+
+  function appendContextBudgetStep(data) {
+    const status = String(data && data.status || '');
+    const tokenEstimated = Number(data && data.estimated_tokens);
+    const tokenLimit = Number(data && data.usable_input_tokens);
+    const tokenRatio = Number(data && data.token_usage_ratio);
+    const hasTokenBudget = Number.isFinite(tokenEstimated) && Number.isFinite(tokenLimit) && tokenLimit > 0;
+    const estimated = hasTokenBudget ? tokenEstimated : Number(data && data.estimated_chars);
+    const limit = hasTokenBudget ? tokenLimit : Number(data && data.char_limit);
+    const ratio = hasTokenBudget ? tokenRatio : Number(data && data.usage_ratio);
+    const labels = {
+      ok: '正常',
+      warning: '偏高',
+      danger: '接近上限',
+    };
+    const label = labels[status] || '状态未知';
+    const statusClass = Object.hasOwn(labels, status) ? status : 'warning';
+    const percent = Number.isFinite(ratio) ? `${Math.round(ratio * 100)}%` : '-';
+    const budgetText = hasTokenBudget
+      ? `${formatCompactTokens(estimated)} / ${formatCompactTokens(limit)}`
+      : `${formatCompactChars(estimated)} / ${formatCompactChars(limit)} chars`;
+    const text = `上下文预算 ${label} | ${budgetText} | ${percent}`;
+    const step = appendStep(`context_budget ${statusClass}`, text);
+    if (step) {
+      step.title = `method=${data && data.method ? data.method : '-'} tokens=${data && data.estimated_tokens != null ? data.estimated_tokens : '-'} usable_tokens=${data && data.usable_input_tokens != null ? data.usable_input_tokens : '-'} token_ratio=${data && data.token_usage_ratio != null ? data.token_usage_ratio : '-'} chars=${data && data.estimated_chars != null ? data.estimated_chars : '-'} char_limit=${data && data.char_limit != null ? data.char_limit : '-'} char_ratio=${data && data.usage_ratio != null ? data.usage_ratio : '-'}`;
+    }
+    return step;
+  }
+
+  function componentLabel(name) {
+    const labels = {
+      system: 'system',
+      context_summary: 'summary',
+      base_non_system: 'base',
+      transcript_tool_messages: 'tools',
+      transcript_assistant_messages: 'assistant',
+      transcript_other_messages: 'other',
+    };
+    return labels[name] || String(name || '-');
+  }
+
+  function appendPromptCompositionStep(data) {
+    const components = Array.isArray(data && data.components) ? data.components : [];
+    const largest = data && data.largest_component ? data.largest_component : '-';
+    const top = [...components]
+      .filter(item => item && item.name)
+      .sort((a, b) => Number(b.share || 0) - Number(a.share || 0))
+      .slice(0, 3)
+      .map(item => `${componentLabel(item.name)} ${formatRatio(item.share)}`)
+      .join(' ｜ ');
+    const total = data && data.total && data.total.estimated_tokens != null
+      ? formatCompactTokens(data.total.estimated_tokens)
+      : `${formatCompactChars(data && data.total && data.total.estimated_chars)} chars`;
+    const text = `Prompt占比 | 最大 ${componentLabel(largest)} | total ${total}${top ? ` | ${top}` : ''}`;
+    const step = appendStep('prompt_composition', text);
+    if (step) {
+      step.title = [
+        data && data.method ? `method=${data.method}` : 'method=-',
+        data && data._note ? data._note : '',
+        ...components.map(item => `${item.name}: tokens=${item.estimated_tokens ?? '-'} chars=${item.estimated_chars ?? '-'} share=${item.share ?? '-'}`),
+      ].filter(Boolean).join('\n');
+    }
+    return step;
+  }
+
+  function appendContextAggressiveCompressionStep(data) {
+    const beforeTokens = Number(data && data.before_tokens);
+    const afterTokens = Number(data && data.after_tokens);
+    const hasTokenBudget = Number.isFinite(beforeTokens) && Number.isFinite(afterTokens);
+    const before = hasTokenBudget ? formatCompactTokens(beforeTokens) : `${formatCompactChars(data && data.before_chars)} chars`;
+    const after = hasTokenBudget ? formatCompactTokens(afterTokens) : `${formatCompactChars(data && data.after_chars)} chars`;
+    const recentBefore = data && data.recent_messages_before != null ? data.recent_messages_before : '-';
+    const recentAfter = data && data.recent_messages_after != null ? data.recent_messages_after : '-';
+    const text = `上下文压缩 强化 | ${before} -> ${after} | recent ${recentBefore} -> ${recentAfter}`;
+    const step = appendStep('context_aggressive_compression', text);
+    if (step) {
+      step.title = `reason=${data && data.reason ? data.reason : '-'} before=${data && data.before_status ? data.before_status : '-'} after=${data && data.after_status ? data.after_status : '-'} tokens=${data && data.before_tokens != null ? data.before_tokens : '-'}->${data && data.after_tokens != null ? data.after_tokens : '-'} usable=${data && data.usable_input_tokens != null ? data.usable_input_tokens : '-'} chars=${data && data.before_chars != null ? data.before_chars : '-'}->${data && data.after_chars != null ? data.after_chars : '-'}`;
+    }
+    return step;
+  }
+
+  function appendContextRetryStep(data) {
+    const attempt = data && data.attempt != null ? data.attempt : 1;
+    const mode = data && data.retry_mode ? data.retry_mode : 'aggressive';
+    const reason = data && data.reason ? data.reason : 'context_length_exceeded';
+    const text = `上下文超限 已自动重试 | ${mode} | attempt ${attempt}`;
+    const step = appendStep('context_retry danger', text);
+    if (step) {
+      step.title = `reason=${reason} mode=${mode} attempt=${attempt}`;
+    }
+    return step;
+  }
+
+  function appendDatabaseToolCard(data, compression) {
     if (!currentRun) currentRun = createRunChain();
     mountRunChain();
     const card = document.createElement('div');
@@ -625,6 +777,7 @@
       </details>
       <div class="chat-tool-meta">返回 ${app.escapeHtml(String(data.row_count ?? rows.length))} 行${data.truncated ? '（已截断）' : ''}</div>
     `;
+    appendCompressionMeta(card, compression);
 
     card.appendChild(renderTable(columns, rows));
     if (chart.type && chart.type !== 'table') {
@@ -634,7 +787,7 @@
     scrollToLatest();
   }
 
-  function appendDocumentToolCard(data) {
+  function appendDocumentToolCard(data, compression) {
     if (!currentRun) currentRun = createRunChain();
     mountRunChain();
     const card = document.createElement('div');
@@ -647,6 +800,7 @@
       <div class="chat-tool-meta">${app.escapeHtml(file.file_name || data.file_id || '共享文档库')}</div>
       <div class="chat-inline-summary">${app.escapeHtml(data.summary || '')}</div>
     `;
+    appendCompressionMeta(card, compression);
 
     if (file.preview_url || file.preview_markdown) {
       const preview = document.createElement('div');
@@ -697,7 +851,7 @@
     scrollToLatest();
   }
 
-  function appendGenericToolCard(data, title) {
+  function appendGenericToolCard(data, title, compression) {
     if (!currentRun) currentRun = createRunChain();
     mountRunChain();
     const card = document.createElement('div');
@@ -706,13 +860,14 @@
       <div class="chat-tool-card-title">${app.escapeHtml(title || '工具返回')}</div>
       <pre class="chat-sql-block">${app.escapeHtml(JSON.stringify(data || {}, null, 2))}</pre>
     `;
+    appendCompressionMeta(card, compression);
     currentRun.steps.appendChild(card);
     scrollToLatest();
   }
 
 
 
-  function appendAutonomousUsrpCard(data, title) {
+  function appendAutonomousUsrpCard(data, title, compression) {
     if (!currentRun) currentRun = createRunChain();
     mountRunChain();
     const card = document.createElement('div');
@@ -725,6 +880,7 @@
     const outputFile = execution.output_file || (execution.execution_result && execution.execution_result.output_file) || '';
     const freqCount = execution.freq_count || (execution.execution_result && execution.execution_result.freq_count) || plan.freq_count || '';
     const repeatCount = execution.repeat_count || plan.repeat_count || '';
+    const dryRun = data.dry_run != null ? data.dry_run : execution.dry_run;
     const dataSource = data.data_source || execution.data_source || plan.data_source || '';
     const knowledge = Array.isArray(data.knowledge_chunks) ? data.knowledge_chunks : [];
     const validation = data.validation || {};
@@ -735,6 +891,7 @@
       <div class="chat-inline-summary">
         ${freqCount ? `频点数：${app.escapeHtml(String(freqCount))} ｜ ` : ''}
         ${repeatCount ? `重复次数：${app.escapeHtml(String(repeatCount))} ｜ ` : ''}
+        ${dryRun != null ? `模式：${dryRun ? 'Dry-run 模拟' : '真实执行'} ｜ ` : ''}
         ${dataSource ? `数据源：${app.escapeHtml(String(dataSource))} ｜ ` : ''}
         ${outputFile ? `输出：${app.escapeHtml(outputFile)}` : '智能体正在自主规划/生成/执行采集流程'}
       </div>
@@ -743,6 +900,7 @@
       ${code ? `<details open><summary>智能体自主生成的 Python 采集函数</summary><pre class="chat-code-block"><code>${app.escapeHtml(code)}</code></pre></details>` : ''}
       ${Object.keys(execution).length ? `<details open><summary>执行结果</summary><pre class="chat-sql-block">${app.escapeHtml(JSON.stringify(execution, null, 2))}</pre></details>` : ''}
     `;
+    appendCompressionMeta(card, compression);
     if (knowledge.length) {
       const details = document.createElement('details');
       details.innerHTML = `<summary>检索到的内置 USRP API 知识片段</summary>`;
@@ -761,60 +919,7 @@
     scrollToLatest();
   }
 
-  function appendSpectrumBaselineToolCard(data, title) {
-    if (!currentRun) currentRun = createRunChain();
-    mountRunChain();
-    const card = document.createElement('div');
-    card.className = 'chat-tool-card spectrum-baseline-card';
-    const visuals = Array.isArray(data.visualizations) ? data.visualizations : [];
-    const residual = data.residual_summary || {};
-    const peaks = Array.isArray(data.top_peaks) ? data.top_peaks : (Array.isArray(data.new_peaks) ? data.new_peaks : []);
-    card.innerHTML = `
-      <div class="chat-tool-card-title">${app.escapeHtml(title || '频谱基线研判工具')}</div>
-      <div class="chat-inline-summary">${app.escapeHtml(data.key_conclusion || data.summary || '')}</div>
-      <div class="chat-tool-meta">阈值：${app.escapeHtml(String(data.threshold_db ?? '-'))} dB ｜ 中心伪峰剔除：±${app.escapeHtml(String(data.dc_exclusion_bins ?? '-'))} bins ｜ 边缘剔除：${app.escapeHtml(String(data.edge_exclusion_bins ?? '-'))} bins</div>
-      ${data.verdict ? `<div class="chat-tool-meta">判定：${app.escapeHtml(data.verdict)} ｜ 风险：${app.escapeHtml(data.risk_level || '-')} ｜ 新增峰：${app.escapeHtml(String(data.new_peak_count ?? 0))} ｜ 增强峰：${app.escapeHtml(String(data.enhanced_peak_count ?? 0))} ｜ 宽带抬升：${app.escapeHtml(String(data.wideband_segment_count ?? 0))}</div>` : ''}
-      ${Object.keys(residual).length ? `<div class="chat-tool-meta">残差：P95=${app.escapeHtml(String(residual.p95_residual_db ?? '-'))} dB ｜ Max=${app.escapeHtml(String(residual.max_residual_db ?? '-'))} dB ｜ 超阈值 bin=${app.escapeHtml(String(residual.bins_over_threshold ?? 0))}</div>` : ''}
-    `;
-    visuals.forEach(item => {
-      if (!item || !item.url) return;
-      const wrap = document.createElement('div');
-      wrap.className = 'chat-doc-preview inline';
-      wrap.innerHTML = `<div class="chat-tool-meta">${app.escapeHtml(item.title || 'Visualization')}</div><img src="${app.escapeHtml(item.url)}" alt="${app.escapeHtml(item.title || 'spectrum visualization')}">`;
-      card.appendChild(wrap);
-    });
-    if (peaks.length) {
-      const details = document.createElement('details');
-      details.open = true;
-      details.innerHTML = `<summary>关键频谱点预览</summary>`;
-      const list = document.createElement('div');
-      list.className = 'chat-doc-snippet';
-      list.innerHTML = peaks.slice(0, 12).map((item, index) => `
-        <div class="chat-doc-snippet-meta">
-          <span>#${index + 1}</span>
-          <span>${app.escapeHtml(item.frequency_label || String(item.frequency_mhz || '-'))}</span>
-          <span>Power ${app.escapeHtml(String(item.power_db ?? '-'))} dB</span>
-          <span>${item.prominence_db != null ? `Prom. ${app.escapeHtml(String(item.prominence_db))} dB` : ''}${item.power_delta_db != null ? `Δ ${app.escapeHtml(String(item.power_delta_db))} dB` : ''}</span>
-        </div>`).join('');
-      details.appendChild(list);
-      card.appendChild(details);
-    }
-    const raw = document.createElement('details');
-    raw.innerHTML = `<summary>结构化工具输出</summary><pre class="chat-sql-block">${app.escapeHtml(JSON.stringify(data || {}, null, 2))}</pre>`;
-    card.appendChild(raw);
-    currentRun.steps.appendChild(card);
-    scrollToLatest();
-  }
-
-  function appendToolCard(toolName, data) {
-    if (['extract_baseline_spectrum_peaks', 'compare_spectrum_with_baseline'].includes(toolName)) {
-      const titleMap = {
-        extract_baseline_spectrum_peaks: '基线主要频谱点提取',
-        compare_spectrum_with_baseline: '当前采集与基线比对',
-      };
-      appendSpectrumBaselineToolCard(data || {}, titleMap[toolName] || toolName);
-      return;
-    }
+  function appendToolCard(toolName, data, compression) {
     if (['retrieve_usrp_api_knowledge', 'generate_usrp_task_code', 'execute_usrp_task_code', 'run_autonomous_usrp_task', 'autonomous_usrp_progress'].includes(toolName)) {
       const titleMap = {
         retrieve_usrp_api_knowledge: '内置 USRP API 知识检索',
@@ -823,18 +928,18 @@
         run_autonomous_usrp_task: '端到端自主 USRP 采集任务',
         autonomous_usrp_progress: '自主采集中间过程',
       };
-      appendAutonomousUsrpCard(data || {}, titleMap[toolName] || toolName);
+      appendAutonomousUsrpCard(data || {}, titleMap[toolName] || toolName, compression);
       return;
     }
     if (toolName === 'query_local_database') {
-      appendDatabaseToolCard(data || {});
+      appendDatabaseToolCard(data || {}, compression);
       return;
     }
     if (toolName === 'query_uploaded_documents') {
-      appendDocumentToolCard(data || {});
+      appendDocumentToolCard(data || {}, compression);
       return;
     }
-    appendGenericToolCard(data, toolName || '工具返回');
+    appendGenericToolCard(data, toolName || '工具返回', compression);
   }
 
   function updateThinkingBubbleText(text) {
@@ -926,7 +1031,7 @@
         appendStep('error', step.text || `工具 ${step.tool_name || '-'} 执行失败：${step.error}`);
         return;
       }
-      appendToolCard(step.tool_name, step.data || {});
+      appendToolCard(step.tool_name, step.data || {}, step.compression);
       return;
     }
     if (type === 'case_update') {
@@ -973,13 +1078,35 @@
   function updateActionStates() {
     const hasSession = !!currentSession();
     newSessionBtn().disabled = state.isGenerating;
-    nl2sqlButton().disabled = state.isGenerating;
+    chatModeSelector().disabled = state.isGenerating;
+    nl2sqlButton().disabled = state.isGenerating || state.chatMode === 'general';
     chatUploadButton().disabled = state.isGenerating || !hasSession;
     sessionList().classList.toggle('disabled', state.isGenerating);
     if (modelSettingsReset()) modelSettingsReset().disabled = state.isGenerating;
     sendBtn().textContent = state.isGenerating ? '停止生成' : '发送';
     sendBtn().classList.toggle('is-stop', state.isGenerating);
     sendBtn().disabled = !hasSession;
+  }
+
+  function loadChatMode() {
+    const stored = sessionStorage.getItem(CHAT_MODE_KEY);
+    state.chatMode = stored === 'workspace' ? 'workspace' : 'general';
+  }
+
+  function renderChatMode() {
+    chatModeSelector().querySelectorAll('[data-chat-mode]').forEach(button => {
+      const active = button.dataset.chatMode === state.chatMode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (state.chatMode === 'general') togglePopover(false);
+    updateActionStates();
+  }
+
+  function setChatMode(mode) {
+    state.chatMode = mode === 'workspace' ? 'workspace' : 'general';
+    sessionStorage.setItem(CHAT_MODE_KEY, state.chatMode);
+    renderChatMode();
   }
 
   function setGenerating(generating) {
@@ -1106,17 +1233,57 @@
     renderHistory(data.items || []);
   }
 
+  function stopGenerationPoll() {
+    if (generationPollTimer !== null) {
+      window.clearTimeout(generationPollTimer);
+    }
+    generationPollTimer = null;
+    generationPollSessionId = null;
+  }
+
+  function scheduleGenerationPoll(sessionId) {
+    if (generationPollTimer !== null && generationPollSessionId === sessionId) return;
+    if (generationPollTimer !== null) window.clearTimeout(generationPollTimer);
+    generationPollSessionId = sessionId;
+    generationPollTimer = window.setTimeout(() => {
+      generationPollTimer = null;
+      void syncGenerationStatus(sessionId);
+    }, 1500);
+  }
+
+  async function syncGenerationStatus(sessionId) {
+    if (!sessionId) return;
+    try {
+      const status = await app.api(`/api/chat/sessions/${encodeURIComponent(sessionId)}/generation-status`);
+      const active = ['queued', 'running', 'cancelling'].includes(status.status);
+      if (sessionId !== state.currentSessionId) return;
+      setGenerating(active);
+      if (active) {
+        scheduleGenerationPoll(sessionId);
+        return;
+      }
+      stopGenerationPoll();
+      await loadHistory(sessionId);
+      await refreshSessions();
+    } catch (error) {
+      console.error(error);
+      if (sessionId === state.currentSessionId) scheduleGenerationPoll(sessionId);
+    }
+  }
+
   async function switchSession(sessionId, options = {}) {
     const { force = false, skipGeneratingCheck = false } = options;
     if (!sessionId) return;
     if (!force && sessionId === state.currentSessionId) return;
     if (!skipGeneratingCheck && state.isGenerating) return;
+    stopGenerationPoll();
     state.currentSessionId = sessionId;
     state.openSessionMenuId = null;
     window.localStorage.setItem(STORAGE_KEY, sessionId);
     renderSessionList();
     updateSessionHeader();
     await loadHistory(sessionId);
+    await syncGenerationStatus(sessionId);
     renderDraftAttachments();
     updateAttachmentHint();
     updateSessionHeader();
@@ -1936,7 +2103,32 @@
     }
     if (eventName === 'tool_result') {
       removeThinkingBubble();
-      appendToolCard(data.tool_name, data.data || {});
+      appendToolCard(data.tool_name, data.data || {}, data.compression);
+      return;
+    }
+    if (eventName === 'context_compression') {
+      removeThinkingBubble();
+      appendContextCompressionStep(data || {});
+      return;
+    }
+    if (eventName === 'context_budget') {
+      removeThinkingBubble();
+      appendContextBudgetStep(data || {});
+      return;
+    }
+    if (eventName === 'prompt_composition') {
+      removeThinkingBubble();
+      appendPromptCompositionStep(data || {});
+      return;
+    }
+    if (eventName === 'context_aggressive_compression') {
+      removeThinkingBubble();
+      appendContextAggressiveCompressionStep(data || {});
+      return;
+    }
+    if (eventName === 'context_retry') {
+      removeThinkingBubble();
+      appendContextRetryStep(data || {});
       return;
     }
     if (eventName === 'case_update') {
@@ -1979,6 +2171,7 @@
   }
 
   async function sendMessage(content, sessionId, attachments = []) {
+    const requestChatMode = state.chatMode;
     setGenerating(true);
     state.autoFollow = true;
     scrollToLatest(true);
@@ -1989,6 +2182,7 @@
         session_id: sessionId,
         content,
         attachment_ids: attachments.map(item => item.asset_id),
+        chat_mode: requestChatMode,
         nl2sql_options: getNL2SQLPayload(),
         llm_options: getModelOptionsPayload(),
       }),
@@ -2036,19 +2230,24 @@
       }
     }
     if (state.isGenerating) {
-      setGenerating(false);
       currentRun = null;
-      await refreshSessions();
+      await syncGenerationStatus(sessionId);
     }
   }
 
   async function stopGeneration() {
     if (!state.isGenerating || !state.currentSessionId) return;
-    await fetch('/api/chat/stop', {
+    const response = await fetch('/api/chat/stop', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: state.currentSessionId }),
     });
+    const status = await response.json();
+    if (['idle', 'completed', 'failed', 'cancelled'].includes(status.status)) {
+      await syncGenerationStatus(state.currentSessionId);
+      return;
+    }
+    if (status.status === 'stopping') scheduleGenerationPoll(state.currentSessionId);
   }
 
   function bindUploadEvents() {
@@ -2270,6 +2469,14 @@
     });
   }
 
+  function bindChatModeEvents() {
+    chatModeSelector().addEventListener('click', event => {
+      const button = event.target.closest('[data-chat-mode]');
+      if (!button || state.isGenerating) return;
+      setChatMode(button.dataset.chatMode);
+    });
+  }
+
   function bindSessionEvents() {
     newSessionBtn().addEventListener('click', async () => {
       try {
@@ -2342,37 +2549,8 @@
     });
   }
 
-  async function maybeStartAutoBaselineJudgement() {
-    const params = new URLSearchParams(window.location.search || '');
-    if (params.get('auto_judge') !== '1') return;
-    const judgementId = params.get('judgement_id') || 'latest';
-    const key = `deepem:auto-baseline-judge:${judgementId}`;
-    if (window.sessionStorage.getItem(key)) return;
-    window.sessionStorage.setItem(key, '1');
-    if (!state.currentSessionId) {
-      await createNewSession();
-    } else {
-      const created = await app.api('/api/chat/sessions', { method: 'POST', body: JSON.stringify({ title: '频谱基线研判' }) });
-      if (created.item) {
-        patchSession(created.item);
-        await switchSession(created.item.id, { force: true, skipGeneratingCheck: true });
-      }
-    }
-    const content = '固定频谱基线研判：请按固定流程执行，先调用 extract_baseline_spectrum_peaks，再调用 compare_spectrum_with_baseline。只依据这两个工具结果给出总结和研判依据，不调用其他工具。';
-    showThinkingBubble('正在启动固定频谱基线研判...');
-    try {
-      await sendMessage(content, state.currentSessionId, []);
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    } catch (error) {
-      console.error(error);
-      setGenerating(false);
-      removeThinkingBubble();
-      appendStep('error', `错误：${error.message || '自动研判启动失败'}`);
-    }
-  }
-
   document.addEventListener('DOMContentLoaded', async () => {
+    loadChatMode();
     loadModelOptions();
     renderModelSettings();
     nl2sqlForceEnabled().checked = state.nl2sql.forceEnabled;
@@ -2382,7 +2560,9 @@
     updateConfigHint();
     bindUploadEvents();
     bindModelSettingsEvents();
+    bindChatModeEvents();
     bindNL2SQLEvents();
+    renderChatMode();
     bindSessionEvents();
     timeline().addEventListener('scroll', () => {
       state.autoFollow = isNearBottom();
@@ -2397,7 +2577,6 @@
     backToLatestBtn().addEventListener('click', jumpToLatest);
     await initializeSessions();
     renderDraftAttachments();
-    await maybeStartAutoBaselineJudgement();
     void (async () => {
       try {
         await loadDatabaseCatalog();
@@ -2434,6 +2613,9 @@
         appendStep('error', `错误：${error.message || '发送失败'}`);
         updateAttachmentHint(error.message || '发送失败');
       }
+    });
+    window.addEventListener('pageshow', () => {
+      if (state.currentSessionId) void syncGenerationStatus(state.currentSessionId);
     });
   });
 })();

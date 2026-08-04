@@ -41,8 +41,8 @@ def _query_uploaded_documents(args: dict[str, object], context: ToolContext) -> 
     if not query and not file_id:
         raise RuntimeError("query 与 file_id 至少需要提供一个。")
 
-    file_record = document_index.get_file_record(file_id) if file_id else None
-    hits = document_index.search(query=query or None, file_id=file_id, top_k=top_k + 1, max_chars=max_chars)
+    file_record, resolved_file_id, file_id_match_type = _resolve_file_id(document_index, file_id)
+    hits = document_index.search(query=query or None, file_id=resolved_file_id, top_k=top_k + 1, max_chars=max_chars)
     items: list[dict[str, Any]] = []
     for hit in hits:
         if file_record and hit.get("asset_id") == file_record.get("asset_id") and hit.get("record_type") == "file":
@@ -82,6 +82,8 @@ def _query_uploaded_documents(args: dict[str, object], context: ToolContext) -> 
             data={
                 "query": query,
                 "file_id": file_id,
+                "resolved_file_id": resolved_file_id,
+                "file_id_match_type": file_id_match_type,
                 "file": {
                     "asset_id": file_record.get("asset_id"),
                     "file_name": file_record.get("file_name"),
@@ -98,6 +100,27 @@ def _query_uploaded_documents(args: dict[str, object], context: ToolContext) -> 
             },
         )
     )
+
+
+def _resolve_file_id(document_index: Any, file_id: str | None) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    if not file_id:
+        return None, None, None
+
+    file_record = document_index.get_file_record(file_id)
+    if file_record:
+        return file_record, file_id, "asset_id"
+
+    find_by_name = getattr(document_index, "find_file_records_by_name", None)
+    if callable(find_by_name):
+        matches = find_by_name(file_id)
+        if len(matches) == 1:
+            resolved = str(matches[0].get("asset_id") or file_id)
+            return matches[0], resolved, "file_name"
+        if len(matches) > 1:
+            asset_ids = ", ".join(str(item.get("asset_id") or "-") for item in matches[:5])
+            raise RuntimeError(f"文件名不唯一：{file_id}；请改用 asset_id。候选：{asset_ids}")
+
+    return None, file_id, "unresolved"
 
 
 def _preview_markdown(payload: dict[str, Any] | None) -> str | None:
