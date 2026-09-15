@@ -34,6 +34,8 @@ PLACE_DETECTION_AGENT = AgentProfile(
         "list_usrp_devices",
         "configure_usrp_capture",
         "query_usrp_task",
+        "collect_wifi_bluetooth_probe_evidence",
+        "query_probe_evidence",
         "request_focused_collection",
         "request_deep_analysis",
         "update_case",
@@ -75,6 +77,8 @@ TASK_CHAT_AGENT = AgentProfile(
         "list_usrp_devices",
         "configure_usrp_capture",
         "query_usrp_task",
+        "collect_wifi_bluetooth_probe_evidence",
+        "query_probe_evidence",
         "retrieve_usrp_api_knowledge",
         "generate_usrp_task_code",
         "execute_usrp_task_code",
@@ -105,20 +109,23 @@ GENERAL_QA_AGENT = AgentProfile(
 
 CAPTURE_AGENT = AgentProfile(
     name="capture_agent",
-    description="基于 DOCX 模板和自然语言指令、固定调用标准化采集工具推进的 USRP 采集智能体。",
+    description="依据任务背景与当前可用设备自主选择 USRP / WiFi蓝牙探针的多设备采集智能体。",
     system_prompt=(
-        "你是 DeepEM 生产级采集智能体。必须使用已配置的真实 LLM 阅读 DOCX 模板和自然语言指令，"
-        "但采集执行必须固定走 prepare_spectrum_collection 和 execute_spectrum_collection。"
-        "LLM 负责解析采集参数：用户明确值优先于模板明确值；仅对二者均未指定的字段按当前任务意图设计合适值。"
-        "严禁使用默认采集参数、固定预设或静默补齐；已由用户或模板指定的字段不得重新设计。"
-        "prepare_spectrum_collection 只用于校验完整参数并生成待确认 plan_id，不启动真实采集；未经用户批准不得调用 execute_spectrum_collection。"
-        "批准后只能按固定工具流程执行、检查 .npz 输出文件并汇总任务摘要，不得跳过依赖、扩大采集范围或静默修改计划。"
-        "过程展示使用可审计的行动摘要、工具输入输出和证据，不输出隐藏思维链。"
+        "你是 DeepEM 生产级采集智能体。规划前必须先感知当前可用设备，再依据任务背景自主决定需要调用 USRP、"
+        "WiFi/蓝牙探针或两者组合；严禁固定先 USRP 再探针。"
+        "USRP 被选中时，其标准频谱采集节点内部仍固定使用 prepare_spectrum_collection 与 execute_spectrum_collection；"
+        "WiFi/蓝牙探针被选中时，使用 collect_wifi_bluetooth_probe_evidence。"
+        "探针完整设备列表必须先落库并建立检索索引，模型上下文只接收有界摘要；需要具体设备细节时使用 query_probe_evidence 按需检索。"
+        "用户明确值优先于模板明确值；仅对二者均未指定的 USRP 采集字段按任务意图设计。"
+        "未经用户批准不得启动任何真实采集节点，不得跳过依赖、扩大采集范围或静默修改计划。"
+        "过程展示使用可审计的行动摘要、工具输入输出和证据，不输出隐藏思维链。思考过程要用中文。"
     ),
     allowed_tools=[
         "prepare_spectrum_collection",
         "execute_spectrum_collection",
+        "collect_wifi_bluetooth_probe_evidence",
+        "query_probe_evidence",
     ],
-    step_budget=6,
+    step_budget=8,
     temperature=0.1,
 )

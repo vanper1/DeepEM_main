@@ -305,7 +305,7 @@ def _prepare_spectrum_collection(args: dict[str, Any], context: ToolContext) -> 
         freq_stop = float(plan["freq_stop_mhz"])
         freq_step = float(plan["freq_step_mhz"])
         freq_count = max(1, int((freq_stop - freq_start) / freq_step) + 1)
-        max_freqs = int(os.getenv("DEEPEM_AUTONOMOUS_USRP_MAX_FREQS") or "50000")
+        max_freqs = 800000
         if freq_count > max_freqs:
             return ToolExecutionResult(result=ToolResult(
                 status="error",

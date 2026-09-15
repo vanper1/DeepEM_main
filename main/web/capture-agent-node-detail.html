@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DeepEM · 节点执行详情</title>
+  <link rel="stylesheet" href="/static/styles.css?v=probe-agent-20260729-detail">
+  <link rel="stylesheet" href="/static/capture-agent.css?v=adaptive-devices-0907">
+  <link rel="stylesheet" href="/static/capture-agent-node-detail.css?v=0907">
+</head>
+<body class="deem-body node-detail-page-body">
+  <div class="deem-app node-detail-app">
+    <header class="deem-header node-detail-header">
+      <div class="deem-brandline"><span class="deem-mini-logo">EM</span><span class="deem-brand-title">DeepEM 采集智能体</span></div>
+      <div class="deem-page-title"><h1>节点执行详情</h1><div class="org" id="taskHeading">正在读取任务…</div></div>
+      <div class="deem-header-actions">
+        <span class="live-state" id="detailConnectionStatus">自动刷新</span>
+        <a class="deem-btn ghost" id="backToCapture" href="/capture-agent">返回采集智能体</a>
+      </div>
+    </header>
+
+    <main class="node-detail-workspace">
+      <section class="detail panel node-detail-main">
+        <div class="empty" id="detailEmpty"><div class="empty-icon">◎</div><strong>正在读取节点</strong><span>请稍候…</span></div>
+        <div class="detail-content hidden" id="detailContent">
+          <div class="node-header">
+            <div><span class="eyebrow">NODE</span><h1 id="detailTitle">节点详情</h1><p id="detailSubtitle"></p></div>
+            <span class="status-pill idle" id="detailStatus">等待</span>
+          </div>
+          <div class="metric-strip">
+            <div><span>进度</span><strong id="nodeProgress">0%</strong></div>
+            <div><span>尝试</span><strong id="nodeAttempts">0</strong></div>
+            <div><span>开始</span><strong id="nodeStarted">-</strong></div>
+            <div><span>结束</span><strong id="nodeEnded">-</strong></div>
+          </div>
+          <article class="card summary-card"><div class="card-title"><h3>当前动作</h3><span id="nodeSummaryTime"></span></div><p id="nodeSummary">等待执行</p></article>
+          <article class="card live-spectrum-card hidden" id="liveSpectrumCard">
+            <div class="card-title"><div><h3>实时频谱监测</h3><span>USRP 采集节点执行时订阅实时 FFT 数据</span></div><span class="live-spectrum-status" id="liveSpectrumStatus">等待采集</span></div>
+            <div class="live-spectrum-grid">
+              <div class="live-chart-block"><span>当前频谱</span><canvas aria-label="当前频谱曲线" id="liveSpectrumCanvas"></canvas></div>
+              <div class="live-chart-block"><span>实时瀑布图</span><canvas aria-label="实时频谱瀑布图" id="liveWaterfallCanvas"></canvas></div>
+            </div>
+            <div class="live-spectrum-meta" id="liveSpectrumMeta">等待采集节点提供实时 FFT 数据</div>
+          </article>
+          <div class="two-column">
+            <article class="card"><h3>目标与验收</h3><p class="body-copy" id="nodeDescription"></p><div class="criteria" id="nodeCriteria"></div></article>
+            <article class="card"><h3>依赖与工具</h3><div class="chips" id="nodeDependencies"></div><div class="tool-row"><span>执行器</span><code id="nodeTool">-</code></div></article>
+          </div>
+          <article class="card logs-card"><div class="card-title"><h3>执行日志</h3><span id="logCount">0 条</span></div><div class="logs" id="nodeLogs"></div></article>
+          <details class="advanced-card" open>
+            <summary>技术详情</summary>
+            <div class="advanced-grid"><div><h4>节点输入</h4><pre id="nodeInputs">{}</pre></div><div><h4>节点输出</h4><pre id="nodeOutputs">{}</pre></div></div>
+            <div class="code-block hidden" id="codeCard"><div class="card-title"><h4>生成的采集函数</h4><button class="mini-btn" id="copyCodeBtn" type="button">复制</button></div><pre id="generatedCode"></pre></div>
+            <div class="note-block"><h4>人工备注</h4><textarea id="nodeNote" placeholder="记录现场情况或后续处理建议" rows="3"></textarea><div><button class="mini-btn primary" id="saveNodeNoteBtn" type="button">保存备注</button><span id="noteSaveStatus"></span></div></div>
+          </details>
+        </div>
+      </section>
+
+      <aside class="thinking panel node-detail-thinking">
+        <div class="panel-title-row"><div><span class="eyebrow">MODEL</span><h2>节点研判过程</h2></div><span class="capture-mode-badge deep" id="modelModeBadge">深度思考模式</span></div>
+        <div class="live-summary-card"><div class="live-summary-head"><span class="thinking-orb"></span><strong id="reasoningSummaryTitle">动态思考摘要</strong></div><p id="reasoningSummary">等待模型摘要…</p><span id="reasoningSummaryMeta"></span></div>
+        <details class="structured-output reasoning-details" id="reasoningDetails" open><summary id="reasoningDetailsTitle">查看详细思考过程</summary><pre class="reasoning-stream" id="reasoningStream">尚无详细思考过程</pre></details>
+        <details class="structured-output" open><summary>结构化输出</summary><pre id="structuredStream">尚无输出</pre></details>
+      </aside>
+    </main>
+  </div>
+  <div class="toast hidden" id="toast"></div>
+  <script src="/static/capture-agent-node-detail.js?v=0907"></script>
+</body>
+</html>
