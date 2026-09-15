@@ -4,33 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DeepEM 采集智能体</title>
-  <link rel="stylesheet" href="/static/capture-agent.css?v=capture-agent-v7-20260629">
+  <link rel="stylesheet" href="/static/styles.css?v=probe-agent-20260729-detail">
+  <link rel="stylesheet" href="/static/capture-agent.css?v=adaptive-devices-0907-r2">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/">
-      <span class="brand-mark">D</span>
-      <span><strong>DeepEM</strong><small>采集智能体</small></span>
-    </a>
-
-    <div class="task-headline">
-      <strong id="currentTaskTitle">新建采集任务</strong>
-      <span id="plannerModel">正在检查服务</span>
+<body class="deem-body capture-page-body">
+<div class="deem-app capture-agent-app">
+  <header class="deem-header capture-header">
+    <div class="deem-brandline">
+      <span class="deem-mini-logo" aria-hidden="true">EM</span>
+      <span class="deem-brand-title">DeepEM 采集智能体</span>
     </div>
 
-    <div class="task-meta">
-      <span id="planVersion" class="meta-pill">-</span>
-      <span id="taskStatus" class="status-pill idle">空闲</span>
-      <span id="overallProgressText" class="progress-label">0%</span>
+    <div class="deem-page-title">
+      <h1>DeepEM 采集智能体</h1>
+      <div class="org">中国科学院信息工程研究所</div>
     </div>
 
-    <div class="top-actions">
-      <button id="baselineManagerBtn" class="btn" type="button">基线管理</button>
-      <button id="approveTaskBtn" class="btn primary" type="button" disabled>批准执行</button>
-      <button id="pauseTaskBtn" class="btn" type="button" disabled>暂停</button>
-      <button id="resumeTaskBtn" class="btn" type="button" disabled>继续</button>
-      <button id="cancelTaskBtn" class="btn danger" type="button" disabled>停止</button>
-      <a class="btn ghost" href="/detect/run">返回</a>
+    <div class="deem-header-actions">
+      <button id="modelModeBadge" class="capture-mode-badge fast" type="button" title="点击切换快速/深度思考模式；新建任务时生效" aria-label="切换模型思考模式">快速模式</button>
+      <button id="probeAssistBtn" class="deem-btn ghost hidden" type="button">WiFi/蓝牙辅助证据</button>
+      <button id="evidenceChainBtn" class="deem-btn ghost" type="button" disabled>设备—证据链</button>
+      <button id="baselineManagerBtn" class="deem-btn ghost" type="button">基线管理</button>
+      <button id="approveTaskBtn" class="deem-btn primary" type="button" disabled>批准执行</button>
+      <button id="cancelTaskBtn" class="deem-btn danger" type="button" disabled>停止</button>
+      <a class="deem-btn ghost" href="/home">返回主页面</a>
     </div>
   </header>
 
@@ -52,7 +49,7 @@
 
       <div class="approval-note">
         <i></i>
-        <span>执行前会校验工具、依赖、占位符和参数边界；批准后锁定当前计划。</span>
+        <span>批准后执行当前计划</span>
       </div>
 
       <div id="planNodeList" class="node-list">
@@ -60,7 +57,57 @@
       </div>
     </aside>
 
-    <section class="detail panel">
+    <section id="deviceWorkbench" class="device-workbench panel">
+      <div class="device-workbench-head">
+        <div>
+          <span class="eyebrow">DEVICES</span>
+          <h2>采集设备工作台</h2>
+          <p>自动探测在线设备；智能体会在规划阶段依据任务背景自行决定实际调用哪些设备。</p>
+        </div>
+        <div class="device-workbench-actions">
+          <span id="deviceQueryStatus" class="device-query-status">尚未查询</span>
+          <button id="queryDevicesBtn" class="deem-btn primary" type="button">查询可用设备</button>
+        </div>
+      </div>
+      <div id="deviceSummaryStrip" class="device-summary-strip">
+        <span><i class="device-dot unknown"></i> 等待设备探测</span>
+      </div>
+      <div id="deviceCarousel" class="device-carousel">
+        <div class="device-empty-state">
+          <div class="empty-icon">⌁</div>
+          <strong>尚未查询设备</strong>
+          <span>点击“查询可用设备”自动探测 USRP 与 WiFi/蓝牙探针。</span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="thinking panel">
+      <div class="panel-title-row">
+        <div><span class="eyebrow">LIVE</span><h2>实时执行过程</h2></div>
+        <span id="connectionStatus" class="live-state">未连接</span>
+      </div>
+      <div class="live-summary-card" aria-live="polite">
+        <div class="live-summary-head">
+          <span class="thinking-orb"></span>
+          <strong id="reasoningSummaryTitle">动态思考摘要</strong>
+        </div>
+        <p id="reasoningSummary">等待模型生成当前任务摘要…</p>
+        <span id="reasoningSummaryMeta"></span>
+      </div>
+      <div id="reasoningEmpty" class="reasoning-empty compact hidden">
+        <strong>尚无详细思考过程</strong>
+      </div>
+      <details id="reasoningDetails" class="structured-output reasoning-details">
+        <summary id="reasoningDetailsTitle">查看详细思考过程</summary>
+        <pre id="reasoningStream" class="reasoning-stream">尚无详细思考过程</pre>
+      </details>
+      <details class="structured-output">
+        <summary>查看结构化输出流</summary>
+        <pre id="structuredStream">尚无输出</pre>
+      </details>
+    </aside>
+  </main>
+  <section class="detail panel legacy-node-detail-host hidden" aria-hidden="true">
       <div id="detailEmpty" class="empty">
         <div class="empty-icon">◎</div>
         <strong>尚未选择节点</strong>
@@ -144,23 +191,7 @@
       </div>
     </section>
 
-    <aside class="thinking panel">
-      <div class="panel-title-row">
-        <div><span class="eyebrow">LIVE</span><h2>实时执行过程</h2></div>
-        <span id="connectionStatus" class="live-state">未连接</span>
-      </div>
-      <div id="reasoningEmpty" class="reasoning-empty">
-        <span class="thinking-orb"></span>
-        <strong>等待生成采集计划</strong>
-        <p>采集阶段、工具进度与结构化输出会在这里实时显示，便于审批和追踪。</p>
-      </div>
-      <pre id="reasoningStream" class="reasoning-stream hidden"></pre>
-      <details class="structured-output">
-        <summary>查看结构化输出流</summary>
-        <pre id="structuredStream">尚无输出</pre>
-      </details>
-    </aside>
-  </main>
+
 
   <footer class="composer panel">
     <div class="composer-left">
@@ -177,9 +208,9 @@
     </div>
 
     <div class="composer-center">
-      <textarea id="instructionInput" rows="3" placeholder="描述采集目标、频率范围、步长、重复次数等；Enter 发送，Shift+Enter 换行"></textarea>
+      <textarea id="instructionInput" rows="3" placeholder="描述采集目标"></textarea>
       <button id="sendInstructionBtn" class="send-btn" type="button" disabled>
-        <strong>生成计划</strong><span>提交任务</span>
+        <strong>开启采集</strong><span></span>
       </button>
     </div>
 
@@ -204,7 +235,7 @@
           <div id="approvalParamGrid" class="param-grid"></div>
         </article>
         <article>
-          <h3>固定工具流程</h3>
+          <h3>自适应设备执行流程</h3>
           <div id="approvalFlow" class="arrow-flow"></div>
         </article>
       </div>
@@ -272,7 +303,7 @@
         <div>
           <span class="eyebrow">BASELINE</span>
           <h2 id="baselineModalTitle">场所基线管理</h2>
-          <p>选择一个已采集的 .npz 作为当前场所基线；两个研判工具都会围绕该基线工作。</p>
+          <p></p>
         </div>
         <button id="closeBaselineModalBtn" class="modal-close-btn" type="button" aria-label="关闭基线管理">×</button>
       </div>
@@ -281,7 +312,7 @@
         <label class="param-item editable-param"><span>中心伪峰剔除 bins</span><input id="baselineDcBinsInput" type="number" step="1" min="0" max="128" value="5"></label>
         <label class="param-item editable-param"><span>边缘剔除 bins</span><input id="baselineEdgeBinsInput" type="number" step="1" min="0" max="256" value="2"></label>
       </div>
-      <div class="baseline-hint">阈值越低越敏感，越容易发现轻微异常；阈值越高越保守，越不容易判为异常。</div>
+      <div class="baseline-hint">阈值越高越保守，越不易判为异常</div>
       <div id="baselineList" class="baseline-list"><div class="empty compact">正在读取 .npz 文件……</div></div>
       <div class="modal-actions">
         <span id="baselineSaveStatus" class="approval-param-status"></span>
@@ -291,7 +322,124 @@
     </section>
   </div>
 
+
+  <div id="probeAssistModal" class="modal-backdrop hidden">
+    <section class="probe-assist-modal" role="dialog" aria-modal="true" aria-labelledby="probeAssistTitle">
+      <div class="modal-head probe-assist-head">
+        <div>
+          <span class="eyebrow">AUXILIARY EVIDENCE</span>
+          <h2 id="probeAssistTitle">WiFi/蓝牙探针辅助证据</h2>
+          <p id="probeAssistPrompt">USRP 采集已完成。是否确认调用 WiFi/蓝牙探针以获取更多信息？</p>
+        </div>
+        <div class="probe-assist-head-actions">
+          <span id="probeAssistStatus" class="status-pill awaiting_approval">等待确认</span>
+          <button id="closeProbeAssistBtn" class="modal-close-btn" type="button" aria-label="关闭探针流程浮窗">×</button>
+        </div>
+      </div>
+      <div id="probeAssistDevices" class="probe-assist-devices"></div>
+      <div id="probeAssistTimeline" class="probe-assist-timeline"></div>
+      <article class="probe-assist-summary-card">
+        <div class="card-title"><h3>智能总结</h3><span>用于辅助人员快速研判</span></div>
+        <p id="probeAssistSummary">确认后，智能体将依次查询探针列表、目标汇总和观测时段明细，并实时总结采集信息。</p>
+      </article>
+      <details id="probeAssistReasoningDetails" class="structured-output probe-assist-detail-block">
+        <summary>查看模型详细过程</summary>
+        <pre id="probeAssistReasoning">尚未开始</pre>
+      </details>
+      <button id="openProbeDetailsBtn" class="probe-details-trigger" type="button" disabled>
+        <span class="probe-details-trigger-icon">▦</span>
+        <span><strong>查看探针采集详细信息</strong><small id="probeAssistDetailsHint">采集完成后可查看设备、目标与观测表格</small></span>
+        <em>打开详情浮窗 →</em>
+      </button>
+      <div id="probeAssistError" class="probe-assist-error hidden"></div>
+      <div class="modal-actions probe-assist-actions">
+        <button id="declineProbeAssistBtn" class="btn danger" type="button">暂不调用</button>
+        <button id="confirmProbeAssistBtn" class="btn primary" type="button">确认调用探针</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="probeDetailModal" class="modal-backdrop nested-modal-backdrop hidden">
+    <section class="probe-detail-modal" role="dialog" aria-modal="true" aria-labelledby="probeDetailTitle">
+      <div class="modal-head probe-detail-head">
+        <div>
+          <span class="eyebrow">PROBE EVIDENCE DETAILS</span>
+          <h2 id="probeDetailTitle">探针采集详细信息</h2>
+          <p id="probeDetailSubtitle">正在读取完整证据文件……</p>
+        </div>
+        <div class="probe-detail-head-actions">
+          <a id="probeDetailDownload" class="mini-btn hidden" href="#">下载原始证据</a>
+          <button id="closeProbeDetailBtn" class="modal-close-btn" type="button" aria-label="关闭探针详细信息">×</button>
+        </div>
+      </div>
+      <div id="probeDetailStats" class="probe-detail-stats"></div>
+      <article class="probe-detail-summary">
+        <strong>智能研判摘要</strong>
+        <p id="probeDetailSummary">正在读取……</p>
+      </article>
+      <div id="probeDetailTabs" class="probe-detail-tabs">
+        <button class="active" type="button" data-probe-detail-tab="wifi_ap">WiFi 热点</button>
+        <button type="button" data-probe-detail-tab="wifi_client">WiFi 客户端</button>
+        <button type="button" data-probe-detail-tab="bluetooth">蓝牙设备</button>
+        <button type="button" data-probe-detail-tab="observations">当前观测</button>
+        <button type="button" data-probe-detail-tab="devices">探针状态</button>
+      </div>
+      <div class="probe-detail-toolbar">
+        <input id="probeDetailSearch" type="search" placeholder="搜索名称、MAC、厂商、SSID、信道……">
+        <span id="probeDetailTableMeta">0 条</span>
+      </div>
+      <div id="probeDetailTable" class="probe-detail-table-wrap"><div class="probe-detail-loading">正在加载完整证据……</div></div>
+      <div class="probe-detail-pagination">
+        <button id="probeDetailPrev" class="mini-btn" type="button">上一页</button>
+        <span id="probeDetailPage">第 1 / 1 页</span>
+        <button id="probeDetailNext" class="mini-btn" type="button">下一页</button>
+      </div>
+      <div id="probeDetailIntegrity" class="probe-detail-integrity"></div>
+    </section>
+  </div>
+
+  <div id="artifactDetailModal" class="modal-backdrop nested-modal-backdrop hidden">
+    <section class="artifact-detail-modal" role="dialog" aria-modal="true" aria-labelledby="artifactDetailTitle">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">ARTIFACT DETAILS</span>
+          <h2 id="artifactDetailTitle">任务产物详情</h2>
+          <p id="artifactDetailSubtitle">正在读取产物信息……</p>
+        </div>
+        <button id="closeArtifactDetailBtn" class="modal-close-btn" type="button" aria-label="关闭任务产物详情">×</button>
+      </div>
+      <div id="artifactDetailMeta" class="artifact-detail-meta"></div>
+      <div id="artifactDetailPreview" class="artifact-detail-preview"><div class="probe-detail-loading">正在生成预览……</div></div>
+      <div class="modal-actions">
+        <a id="artifactDetailDownload" class="btn primary" href="#">下载产物</a>
+      </div>
+    </section>
+  </div>
+
+  <div id="deviceHistoryModal" class="modal-backdrop nested-modal-backdrop hidden">
+    <section class="device-history-modal" role="dialog" aria-modal="true" aria-labelledby="deviceHistoryTitle">
+      <div class="modal-head">
+        <div><span class="eyebrow">DEVICE CALL</span><h2 id="deviceHistoryTitle">设备调用详情</h2><p id="deviceHistorySubtitle"></p></div>
+        <button id="closeDeviceHistoryBtn" class="modal-close-btn" type="button" aria-label="关闭设备调用详情">×</button>
+      </div>
+      <div id="deviceHistoryBody" class="device-history-body"></div>
+    </section>
+  </div>
+
+  <div id="evidenceChainModal" class="modal-backdrop nested-modal-backdrop hidden">
+    <section class="evidence-chain-modal" role="dialog" aria-modal="true" aria-labelledby="evidenceChainTitle">
+      <div class="modal-head">
+        <div><span class="eyebrow">DEVICE → EVIDENCE</span><h2 id="evidenceChainTitle">设备—证据链</h2><p id="evidenceChainSubtitle"></p></div>
+        <button id="closeEvidenceChainBtn" class="modal-close-btn" type="button" aria-label="关闭设备证据链">×</button>
+      </div>
+      <div id="evidenceChainPolicy" class="evidence-chain-policy"></div>
+      <div id="evidenceChainBody" class="evidence-chain-body"></div>
+    </section>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
-  <script src="/static/capture-agent.js?v=capture-agent-v7-20260629"></script>
+  <div class="deem-footer-org"></div>
+</div>
+  <script src="/static/capture-agent.js?v=adaptive-devices-0907-r2"></script>
 </body>
 </html>

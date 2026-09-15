@@ -1,0 +1,16 @@
+.node-detail-page-body { overflow: auto; }
+.node-detail-app { min-height: 100vh; }
+.node-detail-header { position: sticky; top: 0; z-index: 20; }
+.node-detail-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; padding: 12px; min-height: calc(100vh - 76px); }
+.node-detail-main { min-width: 0; overflow: visible; }
+.node-detail-main .detail-content { padding-bottom: 18px; }
+.node-detail-thinking { position: sticky; top: 88px; height: calc(100vh - 100px); min-height: 560px; overflow: auto; }
+.node-detail-main .live-spectrum-grid { grid-template-columns: 1fr; }
+.node-detail-main #liveSpectrumCanvas { min-height: 160px; }
+.node-detail-main #liveWaterfallCanvas { min-height: 240px; }
+.node-detail-main .advanced-card pre { max-height: 420px; overflow: auto; }
+.node-detail-error { margin: 24px; padding: 16px; border: 1px solid rgba(239,96,67,.25); border-radius: 10px; color: #f4a28d; background: rgba(239,96,67,.05); }
+@media (max-width: 1150px) {
+  .node-detail-workspace { grid-template-columns: 1fr; }
+  .node-detail-thinking { position: static; height: auto; min-height: 0; }
+}
